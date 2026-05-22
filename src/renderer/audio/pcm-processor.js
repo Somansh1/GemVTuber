@@ -19,7 +19,7 @@ class PCMProcessor extends AudioWorkletProcessor {
     };
   }
 
-  process(inputs, outputs, parameters) {
+  process(inputs, _outputs, _parameters) {
     if (this.isMuted) return true; // Halt processing to save CPU/GC
 
     const input = inputs[0];
