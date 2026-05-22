@@ -40,7 +40,7 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
-      webSecurity: false,
+      webSecurity: true,
     },
   });
 
@@ -202,26 +202,30 @@ function setupIPC() {
       const modelsDir = path.join(__dirname, '..', '..', 'models');
       if (!fs.existsSync(modelsDir)) return null;
       
-      const searchRecursive = (dir) => {
-        if (!fs.existsSync(dir)) return null;
-        const entries = fs.readdirSync(dir, { withFileTypes: true });
-        for (const entry of entries) {
-          const fullPath = path.join(dir, entry.name);
-          if (entry.isDirectory()) {
-            const found = searchRecursive(fullPath);
-            if (found) return found;
-          } else if (entry.name.endsWith('.model3.json')) {
-            return fullPath;
+      // Optimize: Use fs.promises.readdir to avoid blocking the event loop
+      // during deeply nested directory traversals. Expected impact: eliminates
+      // main thread stuttering when the application searches for models.
+      const searchRecursiveAsync = async (dir) => {
+        try {
+          const entries = await fs.promises.readdir(dir, { withFileTypes: true });
+          for (const entry of entries) {
+            const fullPath = path.join(dir, entry.name);
+            if (entry.isDirectory()) {
+              const found = await searchRecursiveAsync(fullPath);
+              if (found) return found;
+            } else if (entry.name.endsWith('.model3.json')) {
+              return fullPath;
+            }
           }
-        }
+        } catch (e) {}
         return null;
       };
 
       const defaultDir = path.join(modelsDir, 'default');
-      const foundInDefault = searchRecursive(defaultDir);
+      const foundInDefault = await searchRecursiveAsync(defaultDir);
       if (foundInDefault) return foundInDefault;
 
-      return searchRecursive(modelsDir);
+      return await searchRecursiveAsync(modelsDir);
     } catch (e) {
       console.error('Error finding default model:', e);
       return null;
@@ -244,7 +248,16 @@ function setupIPC() {
   });
 
   ipcMain.on('open-external-link', (event, url) => {
-    shell.openExternal(url);
+    try {
+      const parsedUrl = new URL(url);
+      if (parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:') {
+        shell.openExternal(url);
+      } else {
+        console.error('Invalid URL protocol for external link:', parsedUrl.protocol);
+      }
+    } catch (error) {
+      console.error('Failed to parse external link URL:', error);
+    }
   });
 
   ipcMain.handle('get-config', async () => {
