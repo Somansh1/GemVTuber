@@ -261,7 +261,7 @@ function setupIPC() {
 
   ipcMain.handle('get-config', async () => {
     const config = await loadConfig();
-    const { encryptedApiKey, apiKey, ...safeConfig } = config;
+    const { encryptedApiKey: _encryptedApiKey, apiKey: _apiKey, ...safeConfig } = config;
     return safeConfig;
   });
 
