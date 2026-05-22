@@ -244,7 +244,16 @@ function setupIPC() {
   });
 
   ipcMain.on('open-external-link', (event, url) => {
-    shell.openExternal(url);
+    try {
+      const parsedUrl = new URL(url);
+      if (parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:') {
+        shell.openExternal(url);
+      } else {
+        console.error('Invalid URL protocol for external link:', parsedUrl.protocol);
+      }
+    } catch (error) {
+      console.error('Failed to parse external link URL:', error);
+    }
   });
 
   ipcMain.handle('get-config', async () => {
