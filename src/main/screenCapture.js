@@ -72,17 +72,19 @@ class ScreenCaptureService {
   /**
    * @private Fire and forget async write for screenshots
    */
-  async _saveToDisk(buffer) {
+  _saveToDisk(buffer) {
     try {
-      // PERF: Replaced synchronous fs.existsSync and fs.mkdirSync with async versions
-      // to avoid blocking the Node.js event loop in this background task.
-      await fs.promises.mkdir(this.screenshotsDir, { recursive: true });
+      if (!fs.existsSync(this.screenshotsDir)) {
+        fs.mkdirSync(this.screenshotsDir, { recursive: true });
+      }
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
       const filePath = path.join(this.screenshotsDir, `screenshot_${timestamp}.jpg`);
       
-      await fs.promises.writeFile(filePath, buffer);
+      fs.promises.writeFile(filePath, buffer).catch(err => {
+        console.error('Failed to write screenshot log:', err);
+      });
     } catch (e) {
-      console.error('Failed to save screenshot log:', e);
+      console.error('Failed to prepare screenshot directory:', e);
     }
   }
 
