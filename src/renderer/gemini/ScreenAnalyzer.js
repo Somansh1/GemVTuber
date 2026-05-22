@@ -20,8 +20,8 @@ export class ScreenAnalyzer {
     this._listening = true;
 
     if (window.electronAPI) {
-      window.electronAPI.onScreenCapture((base64Jpeg) => {
-        this.onCapture(base64Jpeg);
+      window.electronAPI.onScreenCapture(async () => {
+        await this.requestCapture();
       });
     }
   }
@@ -50,11 +50,50 @@ export class ScreenAnalyzer {
   async requestCapture() {
     if (!window.electronAPI) return null;
 
-    const base64 = await window.electronAPI.captureScreen(854, 480);
-    if (base64) {
+    try {
+      const sourceId = await window.electronAPI.getScreenSourceId();
+      if (!sourceId) return null;
+
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: {
+          mandatory: {
+            chromeMediaSource: 'desktop',
+            chromeMediaSourceId: sourceId,
+            minWidth: 854,
+            maxWidth: 854,
+            minHeight: 480,
+            maxHeight: 480,
+          }
+        }
+      });
+
+      const video = document.createElement('video');
+      video.srcObject = stream;
+      await video.play();
+
+      const canvas = document.createElement('canvas');
+      canvas.width = 854;
+      canvas.height = 480;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      // Clean up stream
+      stream.getTracks().forEach(track => track.stop());
+      video.srcObject = null;
+
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.4);
+      const base64 = dataUrl.split(',')[1];
+
+      // Save it to disk in main process in background
+      window.electronAPI.saveScreenshotLog(base64);
+
       this.onCapture(base64);
+      return base64;
+    } catch (e) {
+      console.error('Renderer screenshot capture failed:', e);
+      return null;
     }
-    return base64;
   }
 
   /** Stops listening for captures. */

@@ -15,12 +15,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
 
   // ─── Screen Capture ─────────────────────────────────────────────────
+  getScreenSourceId: () => {
+    return ipcRenderer.invoke('get-screen-source-id');
+  },
+
   captureScreen: (width, height) => {
     return ipcRenderer.invoke('capture-screen', width, height);
   },
 
   onScreenCapture: (callback) => {
-    ipcRenderer.on('screen-captured', (event, base64Data) => callback(base64Data));
+    ipcRenderer.on('trigger-periodic-capture', () => callback());
   },
 
   // ─── Logging ────────────────────────────────────────────────────────
