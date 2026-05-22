@@ -113,6 +113,47 @@ export class InteractionOverlay {
     }
   }
 
+  appendChatMessage(text, role) {
+    if (!this.chatPanel) {
+      this.chatPanel = document.getElementById('chat-panel');
+    }
+    if (!this.chatPanel) return;
+
+    // Show the panel
+    this.chatPanel.style.opacity = '1';
+
+    const msgDiv = document.createElement('div');
+    msgDiv.className = 'px-3 py-2 rounded-lg text-[13px] font-body-md animate-slideInRight max-w-[90%] shadow-lg ';
+    
+    if (role === 'user') {
+      msgDiv.className += 'bg-surface-variant text-on-surface self-end rounded-br-sm';
+    } else {
+      msgDiv.className += 'bg-primary-container text-on-primary-container self-start rounded-bl-sm';
+    }
+
+    msgDiv.textContent = text;
+    this.chatPanel.appendChild(msgDiv);
+    
+    // Auto scroll
+    this.chatPanel.scrollTop = this.chatPanel.scrollHeight;
+
+    // Limit messages
+    while (this.chatPanel.children.length > 20) {
+      this.chatPanel.removeChild(this.chatPanel.firstChild);
+    }
+
+    // Hide chat after 15 seconds of inactivity
+    if (this._chatTimer) clearTimeout(this._chatTimer);
+    this._chatTimer = setTimeout(() => {
+      this.chatPanel.style.opacity = '0';
+      setTimeout(() => {
+        if (this.chatPanel.style.opacity === '0') {
+          this.chatPanel.innerHTML = '';
+        }
+      }, 500);
+    }, 15000);
+  }
+
   showContextMenu(x, y) {
     if (!this.contextMenu) return;
     this.contextMenu.classList.remove('hidden');

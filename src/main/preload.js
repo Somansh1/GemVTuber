@@ -25,6 +25,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('screen-captured', (event, base64Data) => callback(base64Data));
   },
 
+  // ─── Logging ────────────────────────────────────────────────────────
+  saveChatLog: (role, text) => ipcRenderer.invoke('save-chat-log', role, text),
+  saveScreenshotLog: (base64Data) => ipcRenderer.invoke('save-screenshot-log', base64Data),
+  openLogsFolder: () => ipcRenderer.send('open-logs-folder'),
+
   // ─── API Key ────────────────────────────────────────────────────────
   getApiKey: () => ipcRenderer.invoke('get-api-key'),
   setApiKey: (key) => ipcRenderer.invoke('set-api-key', key),

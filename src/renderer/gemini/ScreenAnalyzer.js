@@ -33,6 +33,11 @@ export class ScreenAnalyzer {
   onCapture(base64Jpeg) {
     const timestamp = Date.now();
 
+    // Log the screenshot to disk for monitoring
+    if (window.electronAPI) {
+      window.electronAPI.saveScreenshotLog(base64Jpeg);
+    }
+
     // Store in personality engine for context tracking
     this.personality.addScreenCapture(base64Jpeg, timestamp);
 

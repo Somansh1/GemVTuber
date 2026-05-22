@@ -271,10 +271,34 @@ export class GeminiLiveSession {
           }
           // Text response
           if (part.text) {
+            if (window.electronAPI) window.electronAPI.saveChatLog('gemini', part.text);
             if (this._onTextResponse) {
-              this._onTextResponse(part.text);
+              this._onTextResponse(part.text, 'gemini');
             }
           }
+        }
+      }
+
+      // Transcriptions (User Voice)
+      // The API may send user voice transcriptions here
+      if (content.modelTurn?.parts?.some(p => p.text)) {
+        // already handled above
+      }
+
+      // Actually, Live API sends transcriptions in a specific format for some models. 
+      // If it's a direct text response, it's in modelTurn.parts[].text.
+      // If there are explicit input/output transcriptions:
+      if (content.inputTranscription) {
+        if (window.electronAPI) window.electronAPI.saveChatLog('user', content.inputTranscription.text);
+        if (this._onTextResponse) {
+          this._onTextResponse(content.inputTranscription.text, 'user');
+        }
+      }
+      if (content.outputTranscription) {
+        // sometimes output transcription comes here instead of modelTurn
+        if (window.electronAPI) window.electronAPI.saveChatLog('gemini', content.outputTranscription.text);
+        if (this._onTextResponse) {
+          this._onTextResponse(content.outputTranscription.text, 'gemini');
         }
       }
     }

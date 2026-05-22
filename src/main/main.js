@@ -248,6 +248,45 @@ function setupIPC() {
     app.quit();
   });
 
+  // ─── Logging ────────────────────────────────────────────────────────
+  const logsDir = path.join(app.getPath('userData'), 'logs');
+  const screenshotsDir = path.join(logsDir, 'screenshots');
+
+  ipcMain.handle('save-chat-log', async (event, role, text) => {
+    try {
+      if (!fs.existsSync(logsDir)) fs.mkdirSync(logsDir, { recursive: true });
+      const logFile = path.join(logsDir, 'chat.log');
+      const timestamp = new Date().toISOString();
+      const logLine = `[${timestamp}] ${role.toUpperCase()}: ${text}\n`;
+      fs.appendFileSync(logFile, logLine, 'utf8');
+      return true;
+    } catch (e) {
+      console.error('Failed to save chat log:', e);
+      return false;
+    }
+  });
+
+  ipcMain.handle('save-screenshot-log', async (event, base64Data) => {
+    try {
+      if (!fs.existsSync(screenshotsDir)) fs.mkdirSync(screenshotsDir, { recursive: true });
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const filename = `screenshot_${timestamp}.jpg`;
+      const filePath = path.join(screenshotsDir, filename);
+      
+      const buffer = Buffer.from(base64Data, 'base64');
+      fs.writeFileSync(filePath, buffer);
+      return filePath;
+    } catch (e) {
+      console.error('Failed to save screenshot log:', e);
+      return null;
+    }
+  });
+
+  ipcMain.on('open-logs-folder', () => {
+    if (!fs.existsSync(logsDir)) fs.mkdirSync(logsDir, { recursive: true });
+    shell.openPath(logsDir);
+  });
+
   // Toggle settings (from tray)
   ipcMain.on('toggle-settings', () => {
     if (mainWindow) {

@@ -156,6 +156,9 @@ function setupUICallbacks() {
         if (screenAnalyzer) screenAnalyzer.requestCapture();
         overlay.showSubtitle('📸 Screen captured!', 2000);
         break;
+      case 'logs':
+        if (window.electronAPI) window.electronAPI.openLogsFolder();
+        break;
       case 'mute':
         if (micCapture.isMuted()) {
           micCapture.unmute();
@@ -284,8 +287,9 @@ async function connectGemini(apiKey) {
       overlay.setStatus('listening');
     });
 
-    geminiSession.onTextResponse((text) => {
-      overlay.showSubtitle(text, 6000);
+    geminiSession.onTextResponse((text, role) => {
+      // Show in the floating chat UI instead of the subtitle overlay
+      overlay.appendChatMessage(text, role || 'gemini');
     });
 
     geminiSession.onError((err) => {

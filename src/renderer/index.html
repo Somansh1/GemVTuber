@@ -115,6 +115,10 @@
     <p id="subtitle-text"></p>
   </div>
 
+  <div id="chat-panel" class="fixed left-6 bottom-20 w-[320px] max-h-[300px] flex flex-col gap-2 overflow-y-auto custom-scrollbar z-40 pointer-events-none p-2 rounded-xl transition-all opacity-0">
+    <!-- Chat messages will be dynamically added here -->
+  </div>
+
   <aside id="settings-panel" class="hidden fixed right-6 top-6 bottom-6 w-[360px] h-[calc(100vh-48px)] flex flex-col z-50 bg-[#1e1f22] border border-outline-variant/30 rounded-[16px] shadow-2xl animate-slideInRight overflow-hidden">
     <header class="flex justify-between items-center px-4 py-3 border-b border-outline-variant/30 shrink-0 bg-[#1e1f22]">
       <div>
@@ -277,6 +281,9 @@
     </button>
     <button class="ctx-item" data-action="screenshot">
       <span class="material-symbols-outlined">photo_camera</span> Screenshot
+    </button>
+    <button class="ctx-item" data-action="logs">
+      <span class="material-symbols-outlined">folder_open</span> Open Logs
     </button>
     <button class="ctx-item" data-action="mute">
       <span class="material-symbols-outlined">mic_off</span> Toggle Mute
