@@ -145,6 +145,21 @@ function setupIPC() {
     win.setPosition(x + deltaX, y + deltaY);
   });
 
+  ipcMain.handle('get-screen-source-id', async () => {
+    try {
+      const { desktopCapturer } = require('electron');
+      const sources = await desktopCapturer.getSources({
+        types: ['screen'],
+        thumbnailSize: { width: 0, height: 0 },
+        fetchWindowIcons: false,
+      });
+      if (sources.length > 0) return sources[0].id;
+    } catch (e) {
+      console.error('Failed to get screen source id:', e);
+    }
+    return null;
+  });
+
   ipcMain.handle('capture-screen', async (event, width, height) => {
     if (screenCapture) {
       return await screenCapture.captureNow(width, height);

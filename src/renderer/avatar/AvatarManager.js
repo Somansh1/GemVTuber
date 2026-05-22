@@ -36,6 +36,8 @@ export class AvatarManager {
       resizeTo: window,
     });
 
+    this.app.ticker.maxFPS = 30;
+
     /** @type {import('./DefaultAvatar').DefaultAvatar|null} */
     this.defaultAvatar = null;
 
@@ -48,9 +50,10 @@ export class AvatarManager {
     /** @type {boolean} */
     this._usingDefault = false;
 
+    this._mouseX = window.innerWidth / 2;
+    this._mouseY = window.innerHeight / 2;
+
     // Track mouse for eye follow
-    this._mouseX = 0;
-    this._mouseY = 0;
     window.addEventListener('mousemove', (e) => {
       this._mouseX = e.clientX;
       this._mouseY = e.clientY;
@@ -85,6 +88,9 @@ export class AvatarManager {
     if (this._usingDefault && this.defaultAvatar) {
       this.defaultAvatar.stopAnimation();
       this._usingDefault = false;
+
+    this._mouseX = window.innerWidth / 2;
+    this._mouseY = window.innerHeight / 2;
     }
 
     try {

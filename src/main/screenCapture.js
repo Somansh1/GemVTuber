@@ -100,9 +100,8 @@ class ScreenCaptureService {
     this.timer = setTimeout(async () => {
       if (!this.running) return;
 
-      const base64 = await this.captureNow();
-      if (base64 && this.win && !this.win.isDestroyed()) {
-        this.win.webContents.send('screen-captured', base64);
+      if (this.win && !this.win.isDestroyed()) {
+        this.win.webContents.send('trigger-periodic-capture');
       }
 
       this._scheduleNext();
