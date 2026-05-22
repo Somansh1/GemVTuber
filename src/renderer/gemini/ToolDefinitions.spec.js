@@ -1,30 +1,28 @@
-import { describe, it } from 'node:test';
-import assert from 'node:assert';
-import { generateTools, generateSystemInstruction } from './ToolDefinitions.js';
+const { generateTools, generateSystemInstruction } = require('./ToolDefinitions.js');
 
 describe('ToolDefinitions', () => {
   describe('generateTools', () => {
     it('should generate basic tools (screenshot and remember) when no capabilities are provided', () => {
       const tools = generateTools({});
-      assert.strictEqual(tools.length, 2);
-      assert.strictEqual(tools[0].name, 'take_screenshot');
-      assert.strictEqual(tools[1].name, 'remember_context');
+      expect(tools.length).toBe(2);
+      expect(tools[0].name).toBe('take_screenshot');
+      expect(tools[1].name).toBe('remember_context');
     });
 
     it('should generate set_avatar_emotion tool when expressions are provided', () => {
       const modelProfile = { expressions: ['Happy', 'Sad'] };
       const tools = generateTools(modelProfile);
-      assert.strictEqual(tools.length, 3);
-      assert.strictEqual(tools[0].name, 'set_avatar_emotion');
-      assert.deepStrictEqual(tools[0].parameters.properties.emotion.enum, ['Happy', 'Sad']);
+      expect(tools.length).toBe(3);
+      expect(tools[0].name).toBe('set_avatar_emotion');
+      expect(tools[0].parameters.properties.emotion.enum).toEqual(['Happy', 'Sad']);
     });
 
     it('should generate play_avatar_motion tool when motion groups are provided', () => {
       const modelProfile = { motionGroups: { 'TapBody': 1, 'FlickHead': 2 } };
       const tools = generateTools(modelProfile);
-      assert.strictEqual(tools.length, 3);
-      assert.strictEqual(tools[0].name, 'play_avatar_motion');
-      assert.deepStrictEqual(tools[0].parameters.properties.group.enum, ['TapBody', 'FlickHead']);
+      expect(tools.length).toBe(3);
+      expect(tools[0].name).toBe('play_avatar_motion');
+      expect(tools[0].parameters.properties.group.enum).toEqual(['TapBody', 'FlickHead']);
     });
 
     it('should generate animate_avatar tool when animatable parameters are provided', () => {
@@ -35,17 +33,17 @@ describe('ToolDefinitions', () => {
         ]
       };
       const tools = generateTools(modelProfile);
-      assert.strictEqual(tools.length, 3);
-      assert.strictEqual(tools[0].name, 'animate_avatar');
-      assert.match(tools[0].description, /ParamAngleX \(-30 to 30\)/);
-      assert.doesNotMatch(tools[0].description, /ParamEyeLOpen/);
+      expect(tools.length).toBe(3);
+      expect(tools[0].name).toBe('animate_avatar');
+      expect(tools[0].description).toMatch(/ParamAngleX \(-30 to 30\)/);
+      expect(tools[0].description).not.toMatch(/ParamEyeLOpen/);
     });
 
     it('should generate play_custom_action tool when custom actions are provided', () => {
       const tools = generateTools({}, ['dance', 'jump']);
-      assert.strictEqual(tools.length, 3);
-      assert.strictEqual(tools[0].name, 'play_custom_action');
-      assert.deepStrictEqual(tools[0].parameters.properties.name.enum, ['dance', 'jump']);
+      expect(tools.length).toBe(3);
+      expect(tools[0].name).toBe('play_custom_action');
+      expect(tools[0].parameters.properties.name.enum).toEqual(['dance', 'jump']);
     });
 
     it('should combine all tools when all capabilities are provided', () => {
@@ -58,7 +56,7 @@ describe('ToolDefinitions', () => {
       const tools = generateTools(modelProfile, customActions);
 
       const toolNames = tools.map(t => t.name);
-      assert.deepStrictEqual(toolNames, [
+      expect(toolNames).toEqual([
         'set_avatar_emotion',
         'play_avatar_motion',
         'animate_avatar',
@@ -74,11 +72,11 @@ describe('ToolDefinitions', () => {
 
     it('should generate a basic instruction', () => {
       const instruction = generateSystemInstruction({}, personalityPrompt);
-      assert.match(instruction, /You are a helpful companion/);
-      assert.match(instruction, /Your Avatar/);
-      assert.match(instruction, /Behavior/);
-      assert.doesNotMatch(instruction, /Available expressions/);
-      assert.doesNotMatch(instruction, /Recent Screen Observations/);
+      expect(instruction).toMatch(/You are a helpful companion/);
+      expect(instruction).toMatch(/Your Avatar/);
+      expect(instruction).toMatch(/Behavior/);
+      expect(instruction).not.toMatch(/Available expressions/);
+      expect(instruction).not.toMatch(/Recent Screen Observations/);
     });
 
     it('should include avatar capabilities', () => {
@@ -89,24 +87,24 @@ describe('ToolDefinitions', () => {
         parameterIds: ['ParamAngleZ']
       };
       const instruction = generateSystemInstruction(modelProfile, personalityPrompt);
-      assert.match(instruction, /Available expressions: Joy, Sorrow/);
-      assert.match(instruction, /Available motion groups: Wave/);
-      assert.match(instruction, /these parameters: ParamAngleZ/);
+      expect(instruction).toMatch(/Available expressions: Joy, Sorrow/);
+      expect(instruction).toMatch(/Available motion groups: Wave/);
+      expect(instruction).toMatch(/these parameters: ParamAngleZ/);
     });
 
     it('should include screen context if provided', () => {
       const screenContext = 'User is looking at a cat video.';
       const instruction = generateSystemInstruction({}, personalityPrompt, screenContext);
-      assert.match(instruction, /Recent Screen Observations/);
-      assert.match(instruction, /User is looking at a cat video\./);
+      expect(instruction).toMatch(/Recent Screen Observations/);
+      expect(instruction).toMatch(/User is looking at a cat video\./);
     });
 
     it('should include memories if provided', () => {
       const memories = ['User likes cats.', 'User is a developer.'];
       const instruction = generateSystemInstruction({}, personalityPrompt, '', memories);
-      assert.match(instruction, /Things You Remember About the User/);
-      assert.match(instruction, /- User likes cats\./);
-      assert.match(instruction, /- User is a developer\./);
+      expect(instruction).toMatch(/Things You Remember About the User/);
+      expect(instruction).toMatch(/- User likes cats\./);
+      expect(instruction).toMatch(/- User is a developer\./);
     });
   });
 });
