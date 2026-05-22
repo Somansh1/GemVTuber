@@ -154,7 +154,7 @@ export class PersonalityEngine {
           customPrompt: this.customPrompt,
           memories: this.memories,
         }));
-      } catch (e) { /* storage might be full */ }
+      } catch { /* storage might be full */ }
     }, 1000);
   }
 
@@ -168,7 +168,7 @@ export class PersonalityEngine {
         this.customPrompt = parsed.customPrompt || '';
         this.memories = parsed.memories || [];
       }
-    } catch (e) { /* ignore */ }
+    } catch { /* ignore */ }
   }
 }
 
