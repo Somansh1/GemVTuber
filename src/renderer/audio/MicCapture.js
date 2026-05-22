@@ -49,6 +49,9 @@ export class MicCapture {
         this._onAudioData(new Int16Array(event.data));
       }
     };
+
+    // Sync initial mute state
+    this.workletNode.port.postMessage({ muted: this._muted });
   }
 
   /**
@@ -81,6 +84,9 @@ export class MicCapture {
     if (this.stream) {
       this.stream.getAudioTracks().forEach((t) => (t.enabled = false));
     }
+    if (this.workletNode) {
+      this.workletNode.port.postMessage({ muted: true });
+    }
   }
 
   /** Unmutes the microphone. */
@@ -88,6 +94,9 @@ export class MicCapture {
     this._muted = false;
     if (this.stream) {
       this.stream.getAudioTracks().forEach((t) => (t.enabled = true));
+    }
+    if (this.workletNode) {
+      this.workletNode.port.postMessage({ muted: false });
     }
   }
 

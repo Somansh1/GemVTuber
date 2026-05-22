@@ -15,6 +15,9 @@ let tray = null;
 let screenCapture = null;
 
 const CONFIG_PATH = path.join(app.getPath('userData'), 'config.json');
+const logsDir = path.join(app.getPath('userData'), 'logs');
+const screenshotsDir = path.join(logsDir, 'screenshots');
+let chatLogStream = null;
 
 // ─── Window Creation ────────────────────────────────────────────────────────
 
@@ -44,7 +47,6 @@ function createWindow() {
   mainWindow.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
   mainWindow.setAlwaysOnTop(true, 'floating');
 
-  // Open DevTools in dev mode
   if (process.argv.includes('--dev')) {
     mainWindow.webContents.openDevTools({ mode: 'detach' });
   }
@@ -53,8 +55,6 @@ function createWindow() {
     console.log(`[RENDERER] ${message} (${sourceId}:${line})`);
   });
 
-  // Prevent native Windows system context menu on right-click in drag regions
-  // This allows the renderer's custom context menu to handle ALL right-clicks
   mainWindow.on('system-context-menu', (event) => {
     event.preventDefault();
   });
@@ -65,7 +65,6 @@ function createWindow() {
 }
 
 function getAppIcon() {
-  // Return a simple colored icon as placeholder
   const size = 32;
   const canvas = nativeImage.createEmpty();
   try {
@@ -73,20 +72,35 @@ function getAppIcon() {
     if (fs.existsSync(iconPath)) {
       return nativeImage.createFromPath(iconPath);
     }
-  } catch (e) { /* ignore */ }
+  } catch (e) { }
   return canvas;
+}
+
+// ─── Stream Initialization ──────────────────────────────────────────────────
+
+function getChatLogStream() {
+  if (!chatLogStream) {
+    if (!fs.existsSync(logsDir)) fs.mkdirSync(logsDir, { recursive: true });
+    const logFile = path.join(logsDir, 'chat.log');
+    chatLogStream = fs.createWriteStream(logFile, { flags: 'a', encoding: 'utf8' });
+  }
+  return chatLogStream;
+}
+
+function ensureScreenshotsDir() {
+  if (!fs.existsSync(screenshotsDir)) {
+    fs.mkdirSync(screenshotsDir, { recursive: true });
+  }
 }
 
 // ─── IPC Handlers ───────────────────────────────────────────────────────────
 
 function setupIPC() {
-  // Click-through management
   ipcMain.on('set-ignore-mouse-events', (event, ignore, options) => {
     const win = BrowserWindow.fromWebContents(event.sender);
     if (win) win.setIgnoreMouseEvents(ignore, options || {});
   });
 
-  // Frameless resize
   ipcMain.on('resize-window', (event, direction, deltaX, deltaY) => {
     const win = BrowserWindow.fromWebContents(event.sender);
     if (!win) return;
@@ -109,7 +123,6 @@ function setupIPC() {
       height += deltaY;
     }
 
-    // Enforce minimum size
     const minWidth = 200;
     const minHeight = 200;
     
@@ -125,7 +138,6 @@ function setupIPC() {
     win.setBounds({ x, y, width, height });
   });
 
-  // Manual window dragging to avoid native resize bugs
   ipcMain.on('move-window', (event, deltaX, deltaY) => {
     const win = BrowserWindow.fromWebContents(event.sender);
     if (!win) return;
@@ -133,7 +145,6 @@ function setupIPC() {
     win.setPosition(x + deltaX, y + deltaY);
   });
 
-  // Screen capture (on-demand)
   ipcMain.handle('capture-screen', async (event, width, height) => {
     if (screenCapture) {
       return await screenCapture.captureNow(width, height);
@@ -141,7 +152,6 @@ function setupIPC() {
     return null;
   });
 
-  // API key management (encrypted via safeStorage)
   ipcMain.handle('get-api-key', async () => {
     try {
       const config = loadConfig();
@@ -149,7 +159,7 @@ function setupIPC() {
         const decrypted = safeStorage.decryptString(Buffer.from(config.encryptedApiKey, 'base64'));
         return decrypted;
       }
-      return config.apiKey || null; // Fallback to plaintext if encryption unavailable
+      return config.apiKey || null;
     } catch (e) {
       return null;
     }
@@ -163,7 +173,7 @@ function setupIPC() {
         config.encryptedApiKey = encrypted.toString('base64');
         delete config.apiKey;
       } else {
-        config.apiKey = key; // Fallback
+        config.apiKey = key; 
       }
       saveConfig(config);
       return true;
@@ -172,13 +182,11 @@ function setupIPC() {
     }
   });
 
-  // Find default model
   ipcMain.handle('find-default-model', async () => {
     try {
       const modelsDir = path.join(__dirname, '..', '..', 'models');
       if (!fs.existsSync(modelsDir)) return null;
       
-      // Basic recursive search for first .model3.json
       const searchRecursive = (dir) => {
         if (!fs.existsSync(dir)) return null;
         const entries = fs.readdirSync(dir, { withFileTypes: true });
@@ -194,12 +202,10 @@ function setupIPC() {
         return null;
       };
 
-      // 1. Check models/default first
       const defaultDir = path.join(modelsDir, 'default');
       const foundInDefault = searchRecursive(defaultDir);
       if (foundInDefault) return foundInDefault;
 
-      // 2. Fallback to any model in models/
       return searchRecursive(modelsDir);
     } catch (e) {
       console.error('Error finding default model:', e);
@@ -207,7 +213,6 @@ function setupIPC() {
     }
   });
 
-  // Model file selection
   ipcMain.handle('select-model-file', async () => {
     const result = await dialog.showOpenDialog(mainWindow, {
       title: 'Select Live2D Model',
@@ -223,15 +228,12 @@ function setupIPC() {
     return null;
   });
 
-  // Open external links
   ipcMain.on('open-external-link', (event, url) => {
     shell.openExternal(url);
   });
 
-  // Config persistence
   ipcMain.handle('get-config', async () => {
     const config = loadConfig();
-    // Don't send the encrypted key back
     const { encryptedApiKey, apiKey, ...safeConfig } = config;
     return safeConfig;
   });
@@ -243,32 +245,25 @@ function setupIPC() {
     return true;
   });
 
-  // Quit
   ipcMain.on('quit-app', () => {
     app.quit();
   });
 
-  // ─── Logging ────────────────────────────────────────────────────────
-  const logsDir = path.join(app.getPath('userData'), 'logs');
-  const screenshotsDir = path.join(logsDir, 'screenshots');
-
-  ipcMain.handle('save-chat-log', async (event, role, text) => {
+  // Changed to ipcMain.on for fire-and-forget to clear IPC queue bottleneck
+  ipcMain.on('save-chat-log', (event, role, text) => {
     try {
-      if (!fs.existsSync(logsDir)) await fs.promises.mkdir(logsDir, { recursive: true });
-      const logFile = path.join(logsDir, 'chat.log');
+      const stream = getChatLogStream();
       const timestamp = new Date().toISOString();
       const logLine = `[${timestamp}] ${role.toUpperCase()}: ${text}\n`;
-      await fs.promises.appendFile(logFile, logLine, 'utf8');
-      return true;
+      stream.write(logLine);
     } catch (e) {
       console.error('Failed to save chat log:', e);
-      return false;
     }
   });
 
   ipcMain.handle('save-screenshot-log', async (event, base64Data) => {
     try {
-      if (!fs.existsSync(screenshotsDir)) await fs.promises.mkdir(screenshotsDir, { recursive: true });
+      ensureScreenshotsDir();
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
       const filename = `screenshot_${timestamp}.jpg`;
       const filePath = path.join(screenshotsDir, filename);
@@ -287,7 +282,6 @@ function setupIPC() {
     shell.openPath(logsDir);
   });
 
-  // Toggle settings (from tray)
   ipcMain.on('toggle-settings', () => {
     if (mainWindow) {
       mainWindow.webContents.send('toggle-settings');
@@ -302,7 +296,7 @@ function loadConfig() {
     if (fs.existsSync(CONFIG_PATH)) {
       return JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf-8'));
     }
-  } catch (e) { /* ignore corrupt config */ }
+  } catch (e) { }
   return {};
 }
 
@@ -319,16 +313,13 @@ function saveConfig(config) {
 
 app.whenReady().then(() => {
   protocol.registerFileProtocol('local', (request, callback) => {
-    let url = request.url.substring(8); // strip local://
+    let url = request.url.substring(8); 
     url = decodeURIComponent(url);
-    // Remove query params if any
     const qIndex = url.indexOf('?');
     if (qIndex > -1) url = url.substring(0, qIndex);
-    // Fix Windows drive letter (e.g., C/Users -> C:/Users)
     if (url.match(/^[a-zA-Z]\//)) {
       url = url[0] + ':' + url.substring(1);
     }
-    // ensure absolute path works on Windows
     callback({ path: path.normalize(url) });
   });
 
@@ -337,7 +328,6 @@ app.whenReady().then(() => {
   tray = createTray(mainWindow);
   screenCapture = new ScreenCaptureService(mainWindow);
 
-  // Load saved screen capture interval
   const config = loadConfig();
   if (config.screenCaptureEnabled !== false) {
     screenCapture.start(config.captureIntervalMinutes || 7);
@@ -354,4 +344,5 @@ app.on('activate', () => {
 
 app.on('before-quit', () => {
   if (screenCapture) screenCapture.stop();
+  if (chatLogStream) chatLogStream.end();
 });

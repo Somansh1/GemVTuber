@@ -9,9 +9,19 @@ class PCMProcessor extends AudioWorkletProcessor {
     this.bufferSize = 4096; // Batch messages to reduce postMessage overhead
     this.buffer = new Int16Array(this.bufferSize);
     this.offset = 0;
+    this.isMuted = false;
+
+    // Listen for mute commands to halt processing
+    this.port.onmessage = (event) => {
+      if (event.data && typeof event.data.muted === 'boolean') {
+        this.isMuted = event.data.muted;
+      }
+    };
   }
 
   process(inputs, outputs, parameters) {
+    if (this.isMuted) return true; // Halt processing to save CPU/GC
+
     const input = inputs[0];
     if (!input || !input[0] || input[0].length === 0) return true;
 

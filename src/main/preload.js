@@ -6,8 +6,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.send('set-ignore-mouse-events', ignore, options);
   },
 
-
-
   resizeWindow: (direction, deltaX, deltaY) => {
     ipcRenderer.send('resize-window', direction, deltaX, deltaY);
   },
@@ -26,7 +24,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
 
   // ─── Logging ────────────────────────────────────────────────────────
-  saveChatLog: (role, text) => ipcRenderer.invoke('save-chat-log', role, text),
+  // Changed to ipcRenderer.send to stop blocking the renderer process
+  saveChatLog: (role, text) => ipcRenderer.send('save-chat-log', role, text),
   saveScreenshotLog: (base64Data) => ipcRenderer.invoke('save-screenshot-log', base64Data),
   openLogsFolder: () => ipcRenderer.send('open-logs-folder'),
 
