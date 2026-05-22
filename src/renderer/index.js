@@ -112,12 +112,25 @@ async function loadSavedConfig() {
 function setupUICallbacks() {
   // Settings changes
   settingsPanel.onSave(async (config) => {
+    const oldPersonality = personalityEngine.personalityType;
+    const oldCustomPrompt = personalityEngine.customPrompt;
+
     personalityEngine.setPersonality(config.personality);
-    if (config.customPrompt) personalityEngine.setCustomPrompt(config.customPrompt);
+    if (config.customPrompt !== undefined) {
+      personalityEngine.setCustomPrompt(config.customPrompt);
+    }
     audioPlayer.setVolume(config.volume / 100);
 
     if (window.electronAPI) {
       await window.electronAPI.saveConfig(config);
+    }
+
+    // If personality changed, we must reconnect to send the new system prompt to the Live API
+    if (geminiSession?.isConnected()) {
+      if (oldPersonality !== config.personality || oldCustomPrompt !== config.customPrompt) {
+        overlay.showSubtitle('Updating personality...', 2000);
+        await reconnectGemini();
+      }
     }
   });
 

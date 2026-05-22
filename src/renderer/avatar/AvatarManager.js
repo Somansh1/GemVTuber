@@ -183,7 +183,9 @@ export class AvatarManager {
     console.log('PARAM IDS:', paramIds);
     const hasBody = paramIds.some(id => id && typeof id.includes === 'function' && id.includes('Body'));
     const hasMouthForm = paramIds.some(id => id === 'ParamMouthForm');
+    const hasMouthOpenY = paramIds.some(id => id === 'ParamMouthOpenY');
     const hasBreathing = paramIds.some(id => id === 'ParamBreath');
+    const hasEyeFollow = paramIds.some(id => id === 'ParamAngleX' || id === 'ParamEyeBallX');
 
     this.modelProfile = {
       parameters,
@@ -191,7 +193,9 @@ export class AvatarManager {
       motionGroups,
       hasBody,
       hasMouthForm,
+      hasMouthOpenY,
       hasBreathing,
+      hasEyeFollow,
       parameterIds: paramIds,
     };
 
@@ -346,7 +350,7 @@ export class AvatarManager {
 
   /** @private Update eye follow based on mouse position. */
   _updateEyeFollow() {
-    if (!this.eyeFollowEnabled || !this.model) return;
+    if (!this.eyeFollowEnabled || !this.model || !this.modelProfile?.hasEyeFollow) return;
 
     const w = window.innerWidth;
     const h = window.innerHeight;
