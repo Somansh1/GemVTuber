@@ -116,17 +116,25 @@ export class ProceduralAnimator {
         const range = kfAfter.t - kfBefore.t;
         const localT = range > 0 ? (easedProgress - kfBefore.t) / range : 1;
 
-        // Interpolate each parameter
-        const allParams = new Set([
-          ...Object.keys(kfBefore.params || {}),
-          ...Object.keys(kfAfter.params || {}),
-        ]);
+        // Interpolate each parameter without creating intermediate Sets or Arrays
+        // Performance: This avoids GC pressure inside requestAnimationFrame
+        const paramsBefore = kfBefore.params || {};
+        const paramsAfter = kfAfter.params || {};
 
-        for (const paramId of allParams) {
-          const fromVal = kfBefore.params?.[paramId] ?? 0;
-          const toVal = kfAfter.params?.[paramId] ?? fromVal;
+        for (const paramId in paramsBefore) {
+          const fromVal = paramsBefore[paramId];
+          const toVal = paramsAfter[paramId] !== undefined ? paramsAfter[paramId] : fromVal;
           const interpolated = fromVal + (toVal - fromVal) * localT;
           this.avatarManager.setParameter(paramId, interpolated);
+        }
+
+        for (const paramId in paramsAfter) {
+          if (paramsBefore[paramId] === undefined) {
+            const fromVal = 0; // Default for missing fromVal
+            const toVal = paramsAfter[paramId];
+            const interpolated = fromVal + (toVal - fromVal) * localT;
+            this.avatarManager.setParameter(paramId, interpolated);
+          }
         }
 
         if (progress < 1.0) {
