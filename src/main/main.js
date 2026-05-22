@@ -65,7 +65,6 @@ function createWindow() {
 }
 
 function getAppIcon() {
-  const size = 32;
   const canvas = nativeImage.createEmpty();
   try {
     const iconPath = path.join(__dirname, '..', '..', 'assets', 'icons', 'icon.png');
