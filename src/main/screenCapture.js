@@ -37,6 +37,7 @@ class ScreenCaptureService {
   /**
    * Captures the screen immediately.
    * Decreased resolution to 854x480 for optimization.
+   * Disables fetchWindowIcons to prevent memory overhead and blocking.
    * @param {number} [width=854] - Thumbnail width
    * @param {number} [height=480] - Thumbnail height
    * @returns {Promise<string|null>} Base64 JPEG data or null
@@ -46,6 +47,7 @@ class ScreenCaptureService {
       const sources = await desktopCapturer.getSources({
         types: ['screen'],
         thumbnailSize: { width, height },
+        fetchWindowIcons: false,
       });
 
       if (sources.length === 0) return null;

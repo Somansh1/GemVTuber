@@ -25,6 +25,7 @@ export class GeminiLiveSession {
     this._retryCount = 0;
     this._maxRetries = 3;
     this._config = null;
+    this._reconnectTimer = null;
   }
 
   /**
@@ -105,7 +106,11 @@ export class GeminiLiveSession {
             this._retryCount++;
             const delay = Math.pow(2, this._retryCount) * 1000;
             console.log(`Reconnecting in ${delay}ms (attempt ${this._retryCount})...`);
-            setTimeout(() => this.connect(this._config).catch(() => {}), delay);
+            
+            if (this._reconnectTimer) clearTimeout(this._reconnectTimer);
+            this._reconnectTimer = setTimeout(() => {
+              this.connect(this._config).catch(() => {});
+            }, delay);
           }
         };
       } catch (err) {
@@ -244,6 +249,11 @@ export class GeminiLiveSession {
   /** Disconnects the WebSocket cleanly. */
   disconnect() {
     this._maxRetries = 0; // Prevent auto-reconnect
+    if (this._reconnectTimer) {
+      clearTimeout(this._reconnectTimer);
+      this._reconnectTimer = null;
+    }
+    
     if (this.ws) {
       this.ws.close(1000, 'User disconnect');
       this.ws = null;

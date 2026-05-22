@@ -25,8 +25,8 @@ export class AudioPlayer {
     /** @type {number} Next scheduled playback time */
     this.nextStartTime = 0;
 
-    /** @type {AudioBufferSourceNode[]} Active sources for cleanup on barge-in */
-    this._activeSources = [];
+    /** @type {Set<AudioBufferSourceNode>} Active sources for O(1) cleanup */
+    this._activeSources = new Set();
   }
 
   /**
@@ -43,10 +43,16 @@ export class AudioPlayer {
    */
   playChunk(data) {
     const int16 = data instanceof Int16Array ? data : new Int16Array(data);
-    const float32 = AudioPlayer.int16ToFloat32(int16);
+    const len = int16.length;
+    
+    const buffer = this.audioContext.createBuffer(1, len, this.sampleRate);
+    const channelData = buffer.getChannelData(0);
 
-    const buffer = this.audioContext.createBuffer(1, float32.length, this.sampleRate);
-    buffer.getChannelData(0).set(float32);
+    // Direct zero-copy conversion into the AudioBuffer to prevent double allocation
+    for (let i = 0; i < len; i++) {
+      const val = int16[i];
+      channelData[i] = val / (val < 0 ? 0x8000 : 0x7FFF);
+    }
 
     const source = this.audioContext.createBufferSource();
     source.buffer = buffer;
@@ -59,10 +65,10 @@ export class AudioPlayer {
     this.nextStartTime = startTime + buffer.duration;
 
     // Track for cleanup
-    this._activeSources.push(source);
+    this._activeSources.add(source);
     source.onended = () => {
-      const idx = this._activeSources.indexOf(source);
-      if (idx >= 0) this._activeSources.splice(idx, 1);
+      this._activeSources.delete(source);
+      source.disconnect(); // Prevent memory leak by explicitly breaking the graph
     };
   }
 
@@ -71,9 +77,12 @@ export class AudioPlayer {
    */
   clearQueue() {
     for (const source of this._activeSources) {
-      try { source.stop(); } catch (_) { /* already stopped */ }
+      try { 
+        source.stop(); 
+        source.disconnect();
+      } catch (_) { /* already stopped */ }
     }
-    this._activeSources = [];
+    this._activeSources.clear();
     this.nextStartTime = 0;
   }
 
@@ -98,19 +107,8 @@ export class AudioPlayer {
   /** Clean up. */
   destroy() {
     this.clearQueue();
+    this.analyser.disconnect();
+    this.gainNode.disconnect();
     this.audioContext.close();
-  }
-
-  /**
-   * Converts Int16 PCM to Float32 for Web Audio API.
-   * @param {Int16Array} int16
-   * @returns {Float32Array}
-   */
-  static int16ToFloat32(int16) {
-    const float32 = new Float32Array(int16.length);
-    for (let i = 0; i < int16.length; i++) {
-      float32[i] = int16[i] / (int16[i] < 0 ? 0x8000 : 0x7FFF);
-    }
-    return float32;
   }
 }

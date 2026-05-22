@@ -254,11 +254,11 @@ function setupIPC() {
 
   ipcMain.handle('save-chat-log', async (event, role, text) => {
     try {
-      if (!fs.existsSync(logsDir)) fs.mkdirSync(logsDir, { recursive: true });
+      if (!fs.existsSync(logsDir)) await fs.promises.mkdir(logsDir, { recursive: true });
       const logFile = path.join(logsDir, 'chat.log');
       const timestamp = new Date().toISOString();
       const logLine = `[${timestamp}] ${role.toUpperCase()}: ${text}\n`;
-      fs.appendFileSync(logFile, logLine, 'utf8');
+      await fs.promises.appendFile(logFile, logLine, 'utf8');
       return true;
     } catch (e) {
       console.error('Failed to save chat log:', e);
@@ -268,13 +268,13 @@ function setupIPC() {
 
   ipcMain.handle('save-screenshot-log', async (event, base64Data) => {
     try {
-      if (!fs.existsSync(screenshotsDir)) fs.mkdirSync(screenshotsDir, { recursive: true });
+      if (!fs.existsSync(screenshotsDir)) await fs.promises.mkdir(screenshotsDir, { recursive: true });
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
       const filename = `screenshot_${timestamp}.jpg`;
       const filePath = path.join(screenshotsDir, filename);
       
       const buffer = Buffer.from(base64Data, 'base64');
-      fs.writeFileSync(filePath, buffer);
+      await fs.promises.writeFile(filePath, buffer);
       return filePath;
     } catch (e) {
       console.error('Failed to save screenshot log:', e);
