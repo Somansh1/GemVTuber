@@ -169,7 +169,7 @@ function setupIPC() {
 
   ipcMain.handle('get-api-key', async () => {
     try {
-      const config = loadConfig();
+      const config = await loadConfig();
       if (config.encryptedApiKey && safeStorage.isEncryptionAvailable()) {
         const decrypted = safeStorage.decryptString(Buffer.from(config.encryptedApiKey, 'base64'));
         return decrypted;
@@ -182,7 +182,7 @@ function setupIPC() {
 
   ipcMain.handle('set-api-key', async (event, key) => {
     try {
-      const config = loadConfig();
+      const config = await loadConfig();
       if (safeStorage.isEncryptionAvailable()) {
         const encrypted = safeStorage.encryptString(key);
         config.encryptedApiKey = encrypted.toString('base64');
@@ -248,13 +248,13 @@ function setupIPC() {
   });
 
   ipcMain.handle('get-config', async () => {
-    const config = loadConfig();
+    const config = await loadConfig();
     const { encryptedApiKey, apiKey, ...safeConfig } = config;
     return safeConfig;
   });
 
   ipcMain.handle('save-config', async (event, config) => {
-    const existing = loadConfig();
+    const existing = await loadConfig();
     const merged = { ...existing, ...config };
     saveConfig(merged);
     return true;
@@ -306,11 +306,10 @@ function setupIPC() {
 
 // ─── Config Helpers ─────────────────────────────────────────────────────────
 
-function loadConfig() {
+async function loadConfig() {
   try {
-    if (fs.existsSync(CONFIG_PATH)) {
-      return JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf-8'));
-    }
+    const data = await fs.promises.readFile(CONFIG_PATH, 'utf-8');
+    return JSON.parse(data);
   } catch (e) { }
   return {};
 }
@@ -326,7 +325,7 @@ function saveConfig(config) {
 
 // ─── App Lifecycle ──────────────────────────────────────────────────────────
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   protocol.registerFileProtocol('local', (request, callback) => {
     let url = request.url.substring(8); 
     url = decodeURIComponent(url);
@@ -343,7 +342,7 @@ app.whenReady().then(() => {
   tray = createTray(mainWindow);
   screenCapture = new ScreenCaptureService(mainWindow);
 
-  const config = loadConfig();
+  const config = await loadConfig();
   if (config.screenCaptureEnabled !== false) {
     screenCapture.start(config.captureIntervalMinutes || 7);
   }
