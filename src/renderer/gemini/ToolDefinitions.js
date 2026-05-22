@@ -112,7 +112,6 @@ export function generateTools(modelProfile, customActions = []) {
   return [
     getEmotionTool(modelProfile),
     getMotionTool(modelProfile),
-    getAnimateTool(modelProfile),
     getCustomActionTool(customActions),
     getScreenshotTool(),
     getRememberContextTool()
