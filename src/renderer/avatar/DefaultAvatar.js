@@ -173,7 +173,7 @@ export class DefaultAvatar {
 
   /** @private Draw the full avatar. */
   _draw() {
-    const { ctx, cx, cy, radius } = this;
+    const { ctx, cx, cy } = this;
     const breath = Math.sin(this._breathPhase) * 0.015;
 
     ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
