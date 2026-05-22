@@ -31,6 +31,9 @@ export class LipSync {
   update(avatarManager) {
     if (!this.enabled || !this.analyser) return;
 
+    const profile = avatarManager.modelProfile;
+    if (!profile || (!profile.hasMouthOpenY && !profile.hasMouthForm)) return;
+
     // ── Volume-based mouth opening ──
     this.analyser.getByteTimeDomainData(this.timeData);
 
@@ -58,26 +61,30 @@ export class LipSync {
     }
 
     // Apply to model
-    avatarManager.setParameter('ParamMouthOpenY', Math.max(0, this._currentVolume));
+    if (profile.hasMouthOpenY) {
+      avatarManager.setParameter('ParamMouthOpenY', Math.max(0, this._currentVolume));
+    }
 
     // ── Frequency-based mouth form (vowel shape) ──
-    this.analyser.getByteFrequencyData(this.freqData);
+    if (profile.hasMouthForm) {
+      this.analyser.getByteFrequencyData(this.freqData);
 
-    const lowEnergy = this._avgRange(0, 8);    // ~0-350 Hz
-    const midEnergy = this._avgRange(8, 24);   // ~350-1050 Hz
-    const highEnergy = this._avgRange(24, 50); // ~1050-2200 Hz
+      const lowEnergy = this._avgRange(0, 8);    // ~0-350 Hz
+      const midEnergy = this._avgRange(8, 24);   // ~350-1050 Hz
+      const highEnergy = this._avgRange(24, 50); // ~1050-2200 Hz
 
-    // Rough vowel estimation:
-    // High low + low high → "ah" / "oh" (mouth round, form negative)
-    // Low low + high high → "ee" / "ih" (mouth wide, form positive)
-    const totalEnergy = lowEnergy + midEnergy + highEnergy + 0.01;
-    const formTarget = ((highEnergy - lowEnergy) / totalEnergy) * 0.8;
+      // Rough vowel estimation:
+      // High low + low high → "ah" / "oh" (mouth round, form negative)
+      // Low low + high high → "ee" / "ih" (mouth wide, form positive)
+      const totalEnergy = lowEnergy + midEnergy + highEnergy + 0.01;
+      const formTarget = ((highEnergy - lowEnergy) / totalEnergy) * 0.8;
 
-    this._currentMouthForm += (formTarget - this._currentMouthForm) * 0.25;
+      this._currentMouthForm += (formTarget - this._currentMouthForm) * 0.25;
 
-    // Only apply mouth form if the model supports it and there's audio
-    if (this._currentVolume > 0.05) {
-      avatarManager.setParameter('ParamMouthForm', this._currentMouthForm);
+      // Only apply mouth form if the model supports it and there's audio
+      if (this._currentVolume > 0.05) {
+        avatarManager.setParameter('ParamMouthForm', this._currentMouthForm);
+      }
     }
   }
 

@@ -270,6 +270,15 @@ function setupIPC() {
     const existing = loadConfig();
     const merged = { ...existing, ...config };
     saveConfig(merged);
+
+    // Dynamically update screen capture service
+    if (screenCapture) {
+      screenCapture.stop();
+      if (merged.screenCaptureEnabled !== false) {
+        screenCapture.start(merged.captureIntervalMinutes || 7);
+      }
+    }
+
     return true;
   });
 

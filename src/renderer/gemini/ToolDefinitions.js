@@ -55,47 +55,8 @@ export function generateTools(modelProfile, customActions = []) {
     });
   }
 
-  // 3. Procedural animation — compose animations on the fly
-  const animatableParams = (modelProfile.parameters || [])
-    .filter(p => p && p.id && typeof p.id.includes === 'function' && !p.id.includes('Eye') && !p.id.includes('Mouth'))
-    .map(p => `${p.id} (${p.min} to ${p.max})`);
-
-  if (animatableParams.length > 0) {
-    tools.push({
-      name: 'animate_avatar',
-      description: `Compose a custom animation by keyframing avatar parameters over time. Use this when no pre-made motion exists for what you want to do (e.g., jump, wiggle, dance, nod). Available parameters you can animate: ${animatableParams.slice(0, 15).join(', ')}. Each keyframe has a time 't' (0 to 1) and 'params' mapping parameter IDs to values.`,
-      parameters: {
-        type: 'OBJECT',
-        properties: {
-          duration_ms: {
-            type: 'INTEGER',
-            description: 'Animation duration in milliseconds (100-3000)',
-          },
-          easing: {
-            type: 'STRING',
-            enum: ['linear', 'ease-in', 'ease-out', 'ease-in-out', 'ease-out-bounce'],
-            description: 'Easing function for the animation',
-          },
-          repeat: {
-            type: 'INTEGER',
-            description: 'Number of times to repeat (1-5)',
-          },
-          keyframes: {
-            type: 'ARRAY',
-            items: {
-              type: 'OBJECT',
-              properties: {
-                t: { type: 'NUMBER', description: 'Time position (0 = start, 1 = end)' },
-                params: { type: 'OBJECT', description: 'Parameter ID to value mapping' },
-              },
-            },
-            description: 'Array of keyframes with time and parameter values',
-          },
-        },
-        required: ['duration_ms', 'keyframes'],
-      },
-    });
-  }
+  // 3. Procedural animation — compose animations on the fly (REMOVED)
+  // Generating valid procedural keyframes for complex Live2D models is unreliable for an LLM.
 
   // 4. Custom actions — user-defined animations
   if (customActions.length > 0) {
@@ -173,11 +134,7 @@ Use \`set_avatar_emotion\` frequently to match your mood — be expressive and a
 Use \`play_avatar_motion\` for physical gestures when appropriate.`);
   }
 
-  if (modelProfile.parameters?.length > 0) {
-    parts.push(`You can also compose custom animations using \`animate_avatar\` with these parameters: ${
-      modelProfile.parameterIds?.slice(0, 10).join(', ')
-    }. Use this for actions like jumping, wiggling, nodding, or dancing when asked.`);
-  }
+  // (Removed procedural animation instructions)
 
   // Behavior guidelines
   parts.push(`\n## Behavior
