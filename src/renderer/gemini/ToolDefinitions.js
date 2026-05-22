@@ -14,45 +14,13 @@ export function generateTools(modelProfile, customActions = []) {
 
   // 1. Set avatar emotion — triggers expressions
   if (modelProfile.expressions?.length > 0) {
-    tools.push({
-      name: 'set_avatar_emotion',
-      description: 'Sets the avatar\'s facial expression to match your current mood or reaction. Call this whenever your emotional state changes during conversation — be expressive! Available expressions: ' + modelProfile.expressions.join(', '),
-      parameters: {
-        type: 'OBJECT',
-        properties: {
-          emotion: {
-            type: 'STRING',
-            enum: modelProfile.expressions,
-            description: 'The expression/emotion to display',
-          },
-        },
-        required: ['emotion'],
-      },
-    });
+    tools.push(createEmotionTool(modelProfile.expressions));
   }
 
   // 2. Play motion — triggers pre-made animations
   const motionGroups = Object.keys(modelProfile.motionGroups || {});
   if (motionGroups.length > 0) {
-    tools.push({
-      name: 'play_avatar_motion',
-      description: 'Plays a pre-made animation/motion on the avatar. Use for gestures like waving, nodding, or reacting physically. Available motion groups: ' + motionGroups.join(', '),
-      parameters: {
-        type: 'OBJECT',
-        properties: {
-          group: {
-            type: 'STRING',
-            enum: motionGroups,
-            description: 'The motion group to play from',
-          },
-          index: {
-            type: 'INTEGER',
-            description: 'Motion index within the group (0 = first/random)',
-          },
-        },
-        required: ['group'],
-      },
-    });
+    tools.push(createMotionTool(motionGroups));
   }
 
   // 3. Procedural animation — compose animations on the fly
@@ -61,86 +29,19 @@ export function generateTools(modelProfile, customActions = []) {
     .map(p => `${p.id} (${p.min} to ${p.max})`);
 
   if (animatableParams.length > 0) {
-    tools.push({
-      name: 'animate_avatar',
-      description: `Compose a custom animation by keyframing avatar parameters over time. Use this when no pre-made motion exists for what you want to do (e.g., jump, wiggle, dance, nod). Available parameters you can animate: ${animatableParams.slice(0, 15).join(', ')}. Each keyframe has a time 't' (0 to 1) and 'params' mapping parameter IDs to values.`,
-      parameters: {
-        type: 'OBJECT',
-        properties: {
-          duration_ms: {
-            type: 'INTEGER',
-            description: 'Animation duration in milliseconds (100-3000)',
-          },
-          easing: {
-            type: 'STRING',
-            enum: ['linear', 'ease-in', 'ease-out', 'ease-in-out', 'ease-out-bounce'],
-            description: 'Easing function for the animation',
-          },
-          repeat: {
-            type: 'INTEGER',
-            description: 'Number of times to repeat (1-5)',
-          },
-          keyframes: {
-            type: 'ARRAY',
-            items: {
-              type: 'OBJECT',
-              properties: {
-                t: { type: 'NUMBER', description: 'Time position (0 = start, 1 = end)' },
-                params: { type: 'OBJECT', description: 'Parameter ID to value mapping' },
-              },
-            },
-            description: 'Array of keyframes with time and parameter values',
-          },
-        },
-        required: ['duration_ms', 'keyframes'],
-      },
-    });
+    tools.push(createAnimateTool(animatableParams));
   }
 
   // 4. Custom actions — user-defined animations
   if (customActions.length > 0) {
-    tools.push({
-      name: 'play_custom_action',
-      description: 'Plays a user-defined custom animation. Available actions: ' + customActions.join(', '),
-      parameters: {
-        type: 'OBJECT',
-        properties: {
-          name: {
-            type: 'STRING',
-            enum: customActions,
-            description: 'Name of the custom action to play',
-          },
-        },
-        required: ['name'],
-      },
-    });
+    tools.push(createCustomActionTool(customActions));
   }
 
   // 5. Screenshot — request a screen capture
-  tools.push({
-    name: 'take_screenshot',
-    description: 'Captures a screenshot of the user\'s screen. Use this when you want to see what the user is doing, when they ask you to look at something, or when you\'re curious about their activity.',
-    parameters: {
-      type: 'OBJECT',
-      properties: {},
-    },
-  });
+  tools.push(createScreenshotTool());
 
   // 6. Remember context — save notes about the user
-  tools.push({
-    name: 'remember_context',
-    description: 'Saves an important observation or note about the user for future reference. Use this to remember preferences, habits, or important context (e.g., "User prefers to be called Alex", "User is working on a Python project", "User has been gaming for 2 hours").',
-    parameters: {
-      type: 'OBJECT',
-      properties: {
-        note: {
-          type: 'STRING',
-          description: 'The observation or note to remember',
-        },
-      },
-      required: ['note'],
-    },
-  });
+  tools.push(createRememberContextTool());
 
   return tools;
 }
@@ -200,4 +101,127 @@ Use \`play_avatar_motion\` for physical gestures when appropriate.`);
   }
 
   return parts.join('\n');
+}
+
+function createEmotionTool(expressions) {
+  return {
+    name: 'set_avatar_emotion',
+    description: 'Sets the avatar\'s facial expression to match your current mood or reaction. Call this whenever your emotional state changes during conversation — be expressive! Available expressions: ' + expressions.join(', '),
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        emotion: {
+          type: 'STRING',
+          enum: expressions,
+          description: 'The expression/emotion to display',
+        },
+      },
+      required: ['emotion'],
+    },
+  };
+}
+
+function createMotionTool(motionGroups) {
+  return {
+    name: 'play_avatar_motion',
+    description: 'Plays a pre-made animation/motion on the avatar. Use for gestures like waving, nodding, or reacting physically. Available motion groups: ' + motionGroups.join(', '),
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        group: {
+          type: 'STRING',
+          enum: motionGroups,
+          description: 'The motion group to play from',
+        },
+        index: {
+          type: 'INTEGER',
+          description: 'Motion index within the group (0 = first/random)',
+        },
+      },
+      required: ['group'],
+    },
+  };
+}
+
+function createAnimateTool(animatableParams) {
+  return {
+    name: 'animate_avatar',
+    description: `Compose a custom animation by keyframing avatar parameters over time. Use this when no pre-made motion exists for what you want to do (e.g., jump, wiggle, dance, nod). Available parameters you can animate: ${animatableParams.slice(0, 15).join(', ')}. Each keyframe has a time 't' (0 to 1) and 'params' mapping parameter IDs to values.`,
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        duration_ms: {
+          type: 'INTEGER',
+          description: 'Animation duration in milliseconds (100-3000)',
+        },
+        easing: {
+          type: 'STRING',
+          enum: ['linear', 'ease-in', 'ease-out', 'ease-in-out', 'ease-out-bounce'],
+          description: 'Easing function for the animation',
+        },
+        repeat: {
+          type: 'INTEGER',
+          description: 'Number of times to repeat (1-5)',
+        },
+        keyframes: {
+          type: 'ARRAY',
+          items: {
+            type: 'OBJECT',
+            properties: {
+              t: { type: 'NUMBER', description: 'Time position (0 = start, 1 = end)' },
+              params: { type: 'OBJECT', description: 'Parameter ID to value mapping' },
+            },
+          },
+          description: 'Array of keyframes with time and parameter values',
+        },
+      },
+      required: ['duration_ms', 'keyframes'],
+    },
+  };
+}
+
+function createCustomActionTool(customActions) {
+  return {
+    name: 'play_custom_action',
+    description: 'Plays a user-defined custom animation. Available actions: ' + customActions.join(', '),
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        name: {
+          type: 'STRING',
+          enum: customActions,
+          description: 'Name of the custom action to play',
+        },
+      },
+      required: ['name'],
+    },
+  };
+}
+
+function createScreenshotTool() {
+  return {
+    name: 'take_screenshot',
+    description: 'Captures a screenshot of the user\'s screen. Use this when you want to see what the user is doing, when they ask you to look at something, or when you\'re curious about their activity.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {},
+    },
+  };
+}
+
+function createRememberContextTool() {
+  return {
+    name: 'remember_context',
+    description: 'Saves an important observation or note about the user for future reference. Use this to remember preferences, habits, or important context (e.g., "User prefers to be called Alex", "User is working on a Python project", "User has been gaming for 2 hours").',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        note: {
+          type: 'STRING',
+          description: 'The observation or note to remember',
+        },
+      },
+      required: ['note'],
+    },
+  };
 }
