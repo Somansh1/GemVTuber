@@ -35,11 +35,13 @@ export class LipSync {
     this.analyser.getByteTimeDomainData(this.timeData);
 
     let sum = 0;
+    // ⚡ Bolt Optimization: Hoisted division out of the hot loop to save 2048 float operations per frame
+    // Since (val/128)^2 === (val^2)/16384, we sum the squares first and divide by 16384 outside the loop.
     for (let i = 0; i < this.timeData.length; i++) {
-      const amplitude = (this.timeData[i] - 128) / 128;
-      sum += amplitude * amplitude;
+      const val = this.timeData[i] - 128;
+      sum += val * val;
     }
-    const rms = Math.sqrt(sum / this.timeData.length);
+    const rms = Math.sqrt((sum / 16384) / this.timeData.length);
     const targetVolume = Math.min(rms * 4.5, 1.0);
 
     // Smooth transition
