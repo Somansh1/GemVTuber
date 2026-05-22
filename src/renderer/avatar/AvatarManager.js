@@ -211,7 +211,7 @@ export class AvatarManager {
     }
     try {
       this.model.internalModel.coreModel.setParameterValueById(id, value, weight);
-    } catch (e) {
+    } catch {
       // Parameter might not exist on this model — that's fine
     }
   }
@@ -227,11 +227,11 @@ export class AvatarManager {
     }
     try {
       this.model.expression(name);
-    } catch (e) {
+    } catch {
       // Try by index if name doesn't match
       const idx = this.modelProfile?.expressions?.indexOf(name);
       if (idx >= 0) {
-        try { this.model.expression(idx); } catch (_) { /* ignore */ }
+        try { this.model.expression(idx); } catch { /* ignore */ }
       }
     }
   }
@@ -245,7 +245,7 @@ export class AvatarManager {
     if (!this.model) return;
     try {
       this.model.motion(group, index);
-    } catch (e) {
+    } catch {
       console.warn(`Motion ${group}[${index}] not available`);
     }
   }
@@ -362,7 +362,7 @@ export class AvatarManager {
       core.setParameterValueById('ParamAngleY', -ny * 30, 0.15);
       core.setParameterValueById('ParamEyeBallX', nx, 0.2);
       core.setParameterValueById('ParamEyeBallY', -ny, 0.2);
-    } catch (e) { /* parameters may not exist */ }
+    } catch { /* parameters may not exist */ }
   }
 
   /** @private Attempt to load Cubism Core from CDN. */

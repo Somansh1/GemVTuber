@@ -80,7 +80,7 @@ export class AudioPlayer {
       try { 
         source.stop(); 
         source.disconnect();
-      } catch (_) { /* already stopped */ }
+      } catch { /* already stopped */ }
     }
     this._activeSources.clear();
     this.nextStartTime = 0;

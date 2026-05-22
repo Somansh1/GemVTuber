@@ -71,7 +71,7 @@ function getAppIcon() {
     if (fs.existsSync(iconPath)) {
       return nativeImage.createFromPath(iconPath);
     }
-  } catch (e) { }
+  } catch { }
   return canvas;
 }
 
@@ -174,7 +174,7 @@ function setupIPC() {
         return decrypted;
       }
       return config.apiKey || null;
-    } catch (e) {
+    } catch {
       return null;
     }
   });
@@ -191,7 +191,7 @@ function setupIPC() {
       }
       saveConfig(config);
       return true;
-    } catch (e) {
+    } catch {
       return false;
     }
   });
@@ -216,7 +216,7 @@ function setupIPC() {
               return fullPath;
             }
           }
-        } catch (e) {}
+        } catch {}
         return null;
       };
 
