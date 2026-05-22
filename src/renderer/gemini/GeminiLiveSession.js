@@ -124,21 +124,15 @@ export class GeminiLiveSession {
    * @param {Int16Array} pcmChunk - 16kHz 16-bit PCM audio
    */
   sendAudio(pcmChunk) {
-    if (!this._connected || !this.ws) return;
-
-    // Convert Int16Array to base64
     const base64 = this._int16ToBase64(pcmChunk);
-
-    const msg = {
+    this._sendMessage({
       realtimeInput: {
         mediaChunks: [{
           mimeType: 'audio/pcm;rate=16000',
           data: base64,
         }],
       },
-    };
-
-    this.ws.send(JSON.stringify(msg));
+    });
   }
 
   /**
@@ -146,18 +140,14 @@ export class GeminiLiveSession {
    * @param {string} base64Jpeg - Base64-encoded JPEG image
    */
   sendImage(base64Jpeg) {
-    if (!this._connected || !this.ws) return;
-
-    const msg = {
+    this._sendMessage({
       realtimeInput: {
         mediaChunks: [{
           mimeType: 'image/jpeg',
           data: base64Jpeg,
         }],
       },
-    };
-
-    this.ws.send(JSON.stringify(msg));
+    });
   }
 
   /**
@@ -166,9 +156,7 @@ export class GeminiLiveSession {
    * @param {string} text 
    */
   sendImageWithPrompt(base64Jpeg, text) {
-    if (!this._connected || !this.ws) return;
-
-    const msg = {
+    this._sendMessage({
       clientContent: {
         turns: [{
           role: 'user',
@@ -179,9 +167,7 @@ export class GeminiLiveSession {
         }],
         turnComplete: true,
       },
-    };
-
-    this.ws.send(JSON.stringify(msg));
+    });
   }
 
   /**
@@ -189,9 +175,7 @@ export class GeminiLiveSession {
    * @param {string} text
    */
   sendText(text) {
-    if (!this._connected || !this.ws) return;
-
-    const msg = {
+    this._sendMessage({
       clientContent: {
         turns: [{
           role: 'user',
@@ -199,9 +183,7 @@ export class GeminiLiveSession {
         }],
         turnComplete: true,
       },
-    };
-
-    this.ws.send(JSON.stringify(msg));
+    });
   }
 
   /**
@@ -210,18 +192,14 @@ export class GeminiLiveSession {
    * @param {object} result - The result to send back
    */
   sendToolResponse(callId, result) {
-    if (!this._connected || !this.ws) return;
-
-    const msg = {
+    this._sendMessage({
       toolResponse: {
         functionResponses: [{
           id: callId,
           response: { output: result },
         }],
       },
-    };
-
-    this.ws.send(JSON.stringify(msg));
+    });
   }
 
   // ─── Callback Registration ────────────────────────────────────────
@@ -268,6 +246,15 @@ export class GeminiLiveSession {
   }
 
   // ─── Private ──────────────────────────────────────────────────────
+
+  /**
+   * @private Helper to send a message via WebSocket.
+   * @param {object} msg - The message object to stringify and send.
+   */
+  _sendMessage(msg) {
+    if (!this._connected || !this.ws) return;
+    this.ws.send(JSON.stringify(msg));
+  }
 
   /**
    * @private Handles incoming WebSocket messages.
