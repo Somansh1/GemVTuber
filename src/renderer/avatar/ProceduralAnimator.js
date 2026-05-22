@@ -91,9 +91,24 @@ export class ProceduralAnimator {
    * @param {function} easingFn
    * @returns {Promise<void>}
    */
-  _runKeyframes(keyframes, durationMs, easingFn) {
+_runKeyframes(keyframes, durationMs, easingFn) {
     return new Promise((resolve) => {
       const startTime = performance.now();
+
+      // Precompute parameter arrays for each adjacent pair to avoid creating sets on every tick
+      const segmentParams = [];
+      for (let i = 0; i < keyframes.length - 1; i++) {
+        segmentParams.push(Array.from(new Set([
+          ...Object.keys(keyframes[i].params || {}),
+          ...Object.keys(keyframes[i + 1].params || {}),
+        ])));
+      }
+
+      // Precompute parameter array for the fallback (first and last keyframe)
+      const fallbackParams = Array.from(new Set([
+        ...Object.keys(keyframes[0].params || {}),
+        ...Object.keys(keyframes[keyframes.length - 1].params || {}),
+      ]));
 
       const tick = (now) => {
         const elapsed = now - startTime;
@@ -103,11 +118,13 @@ export class ProceduralAnimator {
         // Find the two keyframes to interpolate between
         let kfBefore = keyframes[0];
         let kfAfter = keyframes[keyframes.length - 1];
+        let currentParams = fallbackParams;
 
         for (let i = 0; i < keyframes.length - 1; i++) {
           if (easedProgress >= keyframes[i].t && easedProgress <= keyframes[i + 1].t) {
             kfBefore = keyframes[i];
             kfAfter = keyframes[i + 1];
+            currentParams = segmentParams[i];
             break;
           }
         }
