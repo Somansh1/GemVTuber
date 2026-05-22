@@ -13,6 +13,8 @@ export class PersonalityEngine {
     /** @type {string[]} */
     this.memories = [];
     this.maxMemories = 50;
+    
+    this._saveTimeout = null;
 
     this._loadFromStorage();
   }
@@ -60,6 +62,7 @@ export class PersonalityEngine {
     if (this.screenCaptures.length > this.maxCaptures) {
       this.screenCaptures.shift();
     }
+    this._saveToStorage();
   }
 
   /**
@@ -141,13 +144,18 @@ export class PersonalityEngine {
 
   /** @private */
   _saveToStorage() {
-    try {
-      localStorage.setItem('gemvtuber_personality', JSON.stringify({
-        type: this.personalityType,
-        customPrompt: this.customPrompt,
-        memories: this.memories,
-      }));
-    } catch (e) { /* storage might be full */ }
+    if (this._saveTimeout) clearTimeout(this._saveTimeout);
+    
+    // Debounce storage writes to avoid synchronous UI blocks
+    this._saveTimeout = setTimeout(() => {
+      try {
+        localStorage.setItem('gemvtuber_personality', JSON.stringify({
+          type: this.personalityType,
+          customPrompt: this.customPrompt,
+          memories: this.memories,
+        }));
+      } catch (e) { /* storage might be full */ }
+    }, 1000);
   }
 
   /** @private */

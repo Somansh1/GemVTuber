@@ -41,19 +41,10 @@ export class ScreenAnalyzer {
     // Store in personality engine for context tracking
     this.personality.addScreenCapture(base64Jpeg, timestamp);
 
-    // Send to Gemini with a contextual prompt
+    // Send to Gemini with a contextual prompt bundled synchronously
     if (this.session.isConnected()) {
-      // First send the image
-      this.session.sendImage(base64Jpeg);
-
-      // Then send a text prompt asking Gemini to process it naturally
-      this.session.sendText(
-        '[System: A periodic screenshot was just taken. Observe what the user is doing. ' +
-        'If anything interesting, funny, or concerning is happening, mention it naturally in your next response. ' +
-        'If the user seems to be doing the same thing for a long time, you may comment on it. ' +
-        'Do NOT describe the screenshot literally — just absorb the context and react naturally if relevant. ' +
-        'If nothing noteworthy, just continue as normal.]'
-      );
+      const prompt = '[SYSTEM: Observe the attached screenshot of the user\'s desktop. ONLY speak if there is a critical, highly significant, or concerning change in activity. Do NOT describe the screen literally. Do NOT hallucinate details. If there is nothing drastically noteworthy, you MUST output nothing and remain silent.]';
+      this.session.sendImageWithPrompt(base64Jpeg, prompt);
     }
   }
 
@@ -64,7 +55,7 @@ export class ScreenAnalyzer {
   async requestCapture() {
     if (!window.electronAPI) return null;
 
-    const base64 = await window.electronAPI.captureScreen(1280, 720);
+    const base64 = await window.electronAPI.captureScreen(854, 480);
     if (base64) {
       this.onCapture(base64);
     }

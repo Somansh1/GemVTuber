@@ -137,7 +137,7 @@ export class GeminiLiveSession {
   }
 
   /**
-   * Sends a screen capture image to the session.
+   * Sends a screen capture image to the session via realtimeInput.
    * @param {string} base64Jpeg - Base64-encoded JPEG image
    */
   sendImage(base64Jpeg) {
@@ -149,6 +149,30 @@ export class GeminiLiveSession {
           mimeType: 'image/jpeg',
           data: base64Jpeg,
         }],
+      },
+    };
+
+    this.ws.send(JSON.stringify(msg));
+  }
+
+  /**
+   * Sends an image and text prompt simultaneously to prevent context detachment.
+   * @param {string} base64Jpeg 
+   * @param {string} text 
+   */
+  sendImageWithPrompt(base64Jpeg, text) {
+    if (!this._connected || !this.ws) return;
+
+    const msg = {
+      clientContent: {
+        turns: [{
+          role: 'user',
+          parts: [
+            { inlineData: { mimeType: 'image/jpeg', data: base64Jpeg } },
+            { text: text }
+          ],
+        }],
+        turnComplete: true,
       },
     };
 
@@ -279,15 +303,6 @@ export class GeminiLiveSession {
         }
       }
 
-      // Transcriptions (User Voice)
-      // The API may send user voice transcriptions here
-      if (content.modelTurn?.parts?.some(p => p.text)) {
-        // already handled above
-      }
-
-      // Actually, Live API sends transcriptions in a specific format for some models. 
-      // If it's a direct text response, it's in modelTurn.parts[].text.
-      // If there are explicit input/output transcriptions:
       if (content.inputTranscription) {
         if (window.electronAPI) window.electronAPI.saveChatLog('user', content.inputTranscription.text);
         if (this._onTextResponse) {
@@ -295,7 +310,6 @@ export class GeminiLiveSession {
         }
       }
       if (content.outputTranscription) {
-        // sometimes output transcription comes here instead of modelTurn
         if (window.electronAPI) window.electronAPI.saveChatLog('gemini', content.outputTranscription.text);
         if (this._onTextResponse) {
           this._onTextResponse(content.outputTranscription.text, 'gemini');
@@ -318,15 +332,16 @@ export class GeminiLiveSession {
   }
 
   /**
-   * @private Converts Int16Array to base64 string.
+   * @private Converts Int16Array to base64 string using batched chunks.
    * @param {Int16Array} int16
    * @returns {string}
    */
   _int16ToBase64(int16) {
     const bytes = new Uint8Array(int16.buffer, int16.byteOffset, int16.byteLength);
     let binary = '';
-    for (let i = 0; i < bytes.length; i++) {
-      binary += String.fromCharCode(bytes[i]);
+    const chunkSize = 0x8000; // Process 32KB chunks
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+      binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize));
     }
     return btoa(binary);
   }

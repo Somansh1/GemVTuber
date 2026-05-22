@@ -36,11 +36,12 @@ class ScreenCaptureService {
 
   /**
    * Captures the screen immediately.
-   * @param {number} [width=1280] - Thumbnail width
-   * @param {number} [height=720] - Thumbnail height
+   * Decreased resolution to 854x480 for optimization.
+   * @param {number} [width=854] - Thumbnail width
+   * @param {number} [height=480] - Thumbnail height
    * @returns {Promise<string|null>} Base64 JPEG data or null
    */
-  async captureNow(width = 1280, height = 720) {
+  async captureNow(width = 854, height = 480) {
     try {
       const sources = await desktopCapturer.getSources({
         types: ['screen'],
@@ -50,7 +51,8 @@ class ScreenCaptureService {
       if (sources.length === 0) return null;
 
       const screenshot = sources[0].thumbnail;
-      const jpegBuffer = screenshot.toJPEG(65);
+      // Reduced JPEG quality to 40 for bandwidth optimization
+      const jpegBuffer = screenshot.toJPEG(40);
       return jpegBuffer.toString('base64');
     } catch (err) {
       console.error('Screen capture failed:', err);
