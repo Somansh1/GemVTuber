@@ -49,15 +49,17 @@ export class GeminiLiveSession {
         this.ws.onopen = () => {
           this._connected = true;
 
-          // Send config message (current Live API format as of May 2026)
+          // Send setup message
           const configMsg = {
-            config: {
+            setup: {
               model,
-              responseModalities: ['AUDIO'],
-              speechConfig: {
-                voiceConfig: {
-                  prebuiltVoiceConfig: {
-                    voiceName: config.voiceName || 'Aoede',
+              generationConfig: {
+                responseModalities: ['AUDIO'],
+                speechConfig: {
+                  voiceConfig: {
+                    prebuiltVoiceConfig: {
+                      voiceName: config.voiceName || 'Aoede',
+                    },
                   },
                 },
               },
@@ -74,9 +76,13 @@ export class GeminiLiveSession {
           this.ws.send(JSON.stringify(configMsg));
         };
 
-        this.ws.onmessage = (event) => {
+        this.ws.onmessage = async (event) => {
           try {
-            const msg = JSON.parse(event.data);
+            let data = event.data;
+            if (data instanceof Blob) {
+              data = await data.text();
+            }
+            const msg = JSON.parse(data);
             this._handleMessage(msg, resolve);
           } catch (err) {
             console.error('Failed to parse Gemini message:', err);
