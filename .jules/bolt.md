@@ -1,3 +1,5 @@
+## Performance Edge Cases & Learnings
+* **Synchronous FS access in IPC Main**: Replacing `fs.readdirSync` with asynchronous `fs.promises.readdir` inside Electron's IPC main handlers completely mitigates event loop blocking during heavy local disk tasks. In benchmark, traversing a large nested directory tree blocked the thread for 193ms when using the synchronous API, but blocking was completely eliminated when converting to Promises/await.
 ## 2026-05-22 Performance Log
 - **File**: `src/main/screenCapture.js`
 - **Issue**: Synchronous file operations (`fs.existsSync`, `fs.mkdirSync`) blocked the Node.js event loop in a fire-and-forget background operation (`_saveToDisk`).

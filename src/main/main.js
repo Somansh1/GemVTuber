@@ -202,26 +202,30 @@ function setupIPC() {
       const modelsDir = path.join(__dirname, '..', '..', 'models');
       if (!fs.existsSync(modelsDir)) return null;
       
-      const searchRecursive = (dir) => {
-        if (!fs.existsSync(dir)) return null;
-        const entries = fs.readdirSync(dir, { withFileTypes: true });
-        for (const entry of entries) {
-          const fullPath = path.join(dir, entry.name);
-          if (entry.isDirectory()) {
-            const found = searchRecursive(fullPath);
-            if (found) return found;
-          } else if (entry.name.endsWith('.model3.json')) {
-            return fullPath;
+      // Optimize: Use fs.promises.readdir to avoid blocking the event loop
+      // during deeply nested directory traversals. Expected impact: eliminates
+      // main thread stuttering when the application searches for models.
+      const searchRecursiveAsync = async (dir) => {
+        try {
+          const entries = await fs.promises.readdir(dir, { withFileTypes: true });
+          for (const entry of entries) {
+            const fullPath = path.join(dir, entry.name);
+            if (entry.isDirectory()) {
+              const found = await searchRecursiveAsync(fullPath);
+              if (found) return found;
+            } else if (entry.name.endsWith('.model3.json')) {
+              return fullPath;
+            }
           }
-        }
+        } catch (e) {}
         return null;
       };
 
       const defaultDir = path.join(modelsDir, 'default');
-      const foundInDefault = searchRecursive(defaultDir);
+      const foundInDefault = await searchRecursiveAsync(defaultDir);
       if (foundInDefault) return foundInDefault;
 
-      return searchRecursive(modelsDir);
+      return await searchRecursiveAsync(modelsDir);
     } catch (e) {
       console.error('Error finding default model:', e);
       return null;
