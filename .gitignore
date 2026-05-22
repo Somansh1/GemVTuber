@@ -1,0 +1,56 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+out/
+build/
+
+# Electron Builder
+*.exe
+*.dmg
+*.AppImage
+*.snap
+*.deb
+*.rpm
+
+# Environment & secrets
+.env
+.env.local
+*.key
+
+# User data
+userData/
+user-data/
+
+# Live2D SDK (user must provide their own)
+src/renderer/lib/live2dcubismcore*.js
+src/renderer/lib/live2d.min.js
+
+# User models (too large for git)
+models/*
+!models/.gitkeep
+!models/default/
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+npm-debug.log*
+
+# Coverage
+coverage/
+
+# Misc
+*.tgz
+.npm

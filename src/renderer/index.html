@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html class="dark" lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' file: local: blob: data:; connect-src 'self' file: local: blob: data: wss://generativelanguage.googleapis.com; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cubism.live2d.com https://cdn.tailwindcss.com; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; media-src 'self' file: local: blob: data:; img-src 'self' data: blob: local: file: https://lh3.googleusercontent.com">
+  <title>GemVTuber</title>
+  
+  <link href="https://fonts.googleapis.com" rel="preconnect">
+  <link crossorigin href="https://fonts.gstatic.com" rel="preconnect">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Public+Sans:wght@500;600&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+  
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "secondary-container": "#47464a",
+            "on-surface-variant": "#c6c5d5",
+            "surface-container-highest": "#353437",
+            "primary-fixed": "#e0e0ff",
+            "primary-fixed-dim": "#bdc2ff",
+            "tertiary": "#f7bd3e",
+            "background": "#131315",
+            "on-secondary-container": "#b6b4b8",
+            "outline-variant": "#454653",
+            "surface-dim": "#131315",
+            "on-surface": "#e5e1e4",
+            "secondary-fixed": "#e4e1e6",
+            "tertiary-fixed-dim": "#f7bd3e",
+            "primary-container": "#818cf8",
+            "surface-tint": "#bdc2ff",
+            "on-primary-container": "#101b8a",
+            "tertiary-container": "#c08d00",
+            "primary": "#bdc2ff",
+            "secondary": "#c8c5ca",
+            "on-secondary-fixed-variant": "#47464a",
+            "on-error-container": "#ffdad6",
+            "on-secondary-fixed": "#1b1b1e",
+            "surface-variant": "#353437",
+            "surface-container-high": "#2a2a2c",
+            "on-tertiary-container": "#3e2b00",
+            "on-tertiary-fixed": "#261900",
+            "on-error": "#690005",
+            "on-primary-fixed-variant": "#2f3aa3",
+            "on-background": "#e5e1e4",
+            "on-tertiary-fixed-variant": "#5d4200",
+            "inverse-primary": "#4953bc",
+            "surface-container-low": "#1c1b1d",
+            "surface": "#131315",
+            "on-primary": "#131e8c",
+            "tertiary-fixed": "#ffdea3",
+            "outline": "#908f9e",
+            "on-secondary": "#303033",
+            "inverse-surface": "#e5e1e4",
+            "inverse-on-surface": "#313032",
+            "on-primary-fixed": "#000767",
+            "surface-bright": "#39393b",
+            "surface-container-lowest": "#0e0e10",
+            "error": "#ffb4ab",
+            "error-container": "#93000a",
+            "surface-container": "#201f22",
+            "secondary-fixed-dim": "#c8c5ca",
+            "on-tertiary": "#402d00"
+          },
+          fontFamily: {
+            "mono": ["JetBrains Mono"],
+            "label-sm": ["Inter"],
+            "headline-lg": ["Inter"],
+            "section-header": ["Inter"],
+            "label-md": ["Inter"],
+            "headline-sm": ["Inter"],
+            "body-lg": ["Inter"],
+            "body-md": ["Inter"],
+            "headline-md": ["Inter"]
+          }
+        }
+      }
+    }
+  </script>
+
+  <link rel="stylesheet" href="styles/main.css">
+  
+  <script src="https://cubism.live2d.com/sdk-web/cubismcore/live2dcubismcore.min.js"></script>
+</head>
+<body class="bg-transparent min-h-screen text-on-surface font-sans overflow-hidden">
+  <canvas id="fallback-canvas"></canvas>
+  <canvas id="avatar-canvas"></canvas>
+
+  <div id="window-border"></div>
+
+  <nav id="status-bar" class="status-container">
+    <div id="status-indicator">
+      <div id="status-dot" class="status-dot"></div>
+      <span id="status-text" class="status-text">IDLE</span>
+    </div>
+    <div class="status-divider"></div>
+    <div class="status-actions">
+      <button id="mic-indicator" class="status-action-btn mic-off" title="Toggle Microphone">
+        <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">mic</span>
+      </button>
+      <button id="lock-btn" class="status-action-btn" title="Lock Model (Click-through)">
+        <span class="material-symbols-outlined">lock</span>
+      </button>
+      <button id="settings-open-btn" class="status-action-btn" title="Open Settings">
+        <span class="material-symbols-outlined">settings</span>
+      </button>
+    </div>
+  </nav>
+
+  <div id="subtitle-container" class="hidden">
+    <p id="subtitle-text"></p>
+  </div>
+
+  <aside id="settings-panel" class="hidden fixed right-6 top-6 bottom-6 w-[360px] h-[calc(100vh-48px)] flex flex-col z-50 bg-[#1e1f22] border border-outline-variant/30 rounded-[16px] shadow-2xl animate-slideInRight overflow-hidden">
+    <header class="flex justify-between items-center px-4 py-3 border-b border-outline-variant/30 shrink-0 bg-[#1e1f22]">
+      <div>
+        <h1 class="font-headline-sm text-[16px] text-on-surface">Settings</h1>
+        <p class="font-label-sm text-[11px] text-on-surface-variant">Global Configuration</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <button id="settings-save-btn" class="p-1.5 text-primary hover:bg-surface-variant/50 rounded transition-colors flex items-center justify-center gap-1 font-label-md text-[13px]">
+          <span class="material-symbols-outlined text-[18px]">check_circle</span> Save
+        </button>
+        <button id="settings-close" class="p-1.5 text-on-surface-variant hover:text-on-surface hover:bg-surface-variant/50 rounded-full transition-colors flex items-center justify-center">
+          <span class="material-symbols-outlined text-[18px]">close</span>
+        </button>
+      </div>
+    </header>
+    
+    <div class="flex-1 overflow-y-auto p-4 flex flex-col gap-6 custom-scrollbar relative">
+      <section class="flex flex-col gap-3">
+        <h2 class="font-section-header text-[10px] text-outline uppercase flex items-center gap-2">
+          <span class="material-symbols-outlined text-[14px]">api</span> API Connection
+        </h2>
+        <div class="flex flex-col gap-2">
+          <label class="font-label-sm text-[11px] text-on-surface">API Key</label>
+          <div class="relative flex items-center" id="api-key-toggle-wrapper">
+            <input id="api-key-input" class="w-full bg-surface-container-highest/50 border border-outline-variant/50 rounded pl-3 pr-10 py-1.5 font-mono text-[12px] text-on-surface focus:outline-none focus:border-primary-container focus:ring-1 focus:ring-primary-container transition-all" type="password" placeholder="Paste your API key here">
+            <button id="api-key-toggle" class="absolute right-2 text-on-surface-variant hover:text-on-surface">
+              <span class="material-symbols-outlined text-[16px]">visibility</span>
+            </button>
+          </div>
+          <a id="ai-studio-link" class="font-label-sm text-[10px] text-primary hover:text-primary-container transition-colors inline-flex items-center gap-1 w-max mt-0.5" href="#">
+            Get API Key from AI Studio <span class="material-symbols-outlined text-[12px]">open_in_new</span>
+          </a>
+        </div>
+      </section>
+      
+      <hr class="border-outline-variant/30">
+      
+      <section class="flex flex-col gap-3">
+        <h2 class="font-section-header text-[10px] text-outline uppercase flex items-center gap-2">
+          <span class="material-symbols-outlined text-[14px]">face</span> Avatar Model
+        </h2>
+        <div class="flex flex-col gap-2">
+          <label class="font-label-sm text-[11px] text-on-surface">Current Model (Live2D from booth.pm)</label>
+          <div class="bg-surface-container-highest/50 border border-outline-variant/50 rounded p-2.5 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div class="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-primary">
+                <span class="material-symbols-outlined text-[14px]">memory</span>
+              </div>
+              <span id="model-name" class="font-label-md text-[13px] text-on-surface">Default Avatar</span>
+            </div>
+            <div class="w-1.5 h-1.5 rounded-full bg-tertiary shadow-[0_0_8px_rgba(247,189,62,0.6)]"></div>
+          </div>
+          <button id="model-select-btn" class="mt-1 w-full border border-outline-variant/50 hover:border-primary-container hover:text-primary-container bg-transparent text-on-surface font-label-md text-[12px] py-1.5 px-3 rounded flex items-center justify-center gap-2 transition-all">
+            <span class="material-symbols-outlined text-[16px]">folder_open</span> Select Model
+          </button>
+        </div>
+      </section>
+      
+      <hr class="border-outline-variant/30">
+      
+      <section class="flex flex-col gap-3">
+        <h2 class="font-section-header text-[10px] text-outline uppercase flex items-center gap-2">
+          <span class="material-symbols-outlined text-[14px]">psychology</span> Behavior
+        </h2>
+        <div class="flex flex-col gap-2">
+          <label class="font-label-sm text-[11px] text-on-surface">System Personality</label>
+          <div class="relative">
+            <select id="personality-select" class="w-full bg-surface-container-highest/50 border border-outline-variant/50 rounded pl-3 pr-10 py-1.5 font-body-md text-[13px] text-on-surface appearance-none focus:outline-none focus:border-primary-container focus:ring-1 focus:ring-primary-container transition-all">
+              <option value="caring">Caring & Supportive</option>
+              <option value="playful">Playful & Energetic</option>
+              <option value="sarcastic">Sarcastic & Witty</option>
+              <option value="strict">Strict Mentor</option>
+              <option value="chill">Chill & Laid-back</option>
+              <option value="custom">Custom...</option>
+            </select>
+          </div>
+          <textarea id="custom-personality" class="hidden w-full h-20 mt-1 bg-surface-container-highest/50 border border-outline-variant/50 rounded px-3 py-1.5 font-body-md text-[13px] text-on-surface focus:outline-none focus:border-primary-container focus:ring-1 focus:ring-primary-container transition-all resize-none" placeholder="Enter custom system prompt..."></textarea>
+        </div>
+      </section>
+      
+      <hr class="border-outline-variant/30">
+      
+      <section class="flex flex-col gap-3">
+        <h2 class="font-section-header text-[10px] text-outline uppercase flex items-center gap-2">
+          <span class="material-symbols-outlined text-[14px]">database</span> Context
+        </h2>
+        <div class="flex flex-col gap-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <label class="font-label-md text-[13px] text-on-surface block">Screen Capture</label>
+              <span class="font-body-md text-[11px] text-on-surface-variant">Allow visual context awareness</span>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer ml-auto shrink-0">
+              <input type="checkbox" id="screen-capture-toggle" class="sr-only peer" checked>
+              <div class="w-8 h-[18px] bg-surface-container-highest rounded-full peer peer-checked:after:translate-x-3.5 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-[#e5e1e4] after:rounded-full after:h-[14px] after:w-[14px] after:transition-all peer-checked:bg-[#818cf8]"></div>
+            </label>
+          </div>
+          <div class="flex flex-col gap-1.5">
+            <div class="flex justify-between items-center">
+              <label class="font-label-sm text-[11px] text-on-surface">Capture Interval</label>
+              <span id="capture-interval-label" class="font-mono text-[12px] text-primary-container">7 min</span>
+            </div>
+            <div class="mt-1">
+              <input id="capture-interval" type="range" min="1" max="15" step="1" value="7">
+            </div>
+          </div>
+        </div>
+      </section>
+      
+      <hr class="border-outline-variant/30">
+      
+      <section class="flex flex-col gap-3">
+        <h2 class="font-section-header text-[10px] text-outline uppercase flex items-center gap-2">
+          <span class="material-symbols-outlined text-[14px]">volume_up</span> Audio Output
+        </h2>
+        <div class="flex flex-col gap-4">
+          <div class="flex flex-col gap-2">
+            <label class="font-label-sm text-[11px] text-on-surface">Microphone</label>
+            <div class="relative">
+              <div class="absolute inset-y-0 left-0 flex items-center pl-2.5 pointer-events-none text-on-surface-variant">
+                <span class="material-symbols-outlined text-[16px]">mic</span>
+              </div>
+              <select id="mic-select" class="w-full bg-surface-container-highest/50 border border-outline-variant/50 rounded pl-9 pr-10 py-1.5 font-body-md text-[13px] text-on-surface appearance-none focus:outline-none focus:border-primary-container focus:ring-1 focus:ring-primary-container transition-all">
+                <option value="">Default microphone</option>
+              </select>
+            </div>
+          </div>
+          <div class="flex flex-col gap-1.5">
+            <div class="flex justify-between items-center">
+              <label class="font-label-sm text-[11px] text-on-surface">Volume</label>
+              <span id="volume-label" class="font-mono text-[12px] text-primary-container">80%</span>
+            </div>
+            <div class="mt-1 flex items-center gap-2">
+              <span class="material-symbols-outlined text-on-surface-variant text-[14px]">volume_mute</span>
+              <input id="volume-slider" type="range" min="0" max="100" value="80" class="flex-1">
+              <span class="material-symbols-outlined text-on-surface-variant text-[14px]">volume_up</span>
+            </div>
+          </div>
+        </div>
+      </section>
+      <div class="h-2"></div>
+    </div>
+  </aside>
+
+  <div class="resize-handle resize-n" data-direction="n"></div>
+  <div class="resize-handle resize-s" data-direction="s"></div>
+  <div class="resize-handle resize-e" data-direction="e"></div>
+  <div class="resize-handle resize-w" data-direction="w"></div>
+  <div class="resize-handle resize-nw" data-direction="nw"></div>
+  <div class="resize-handle resize-ne" data-direction="ne"></div>
+  <div class="resize-handle resize-sw" data-direction="sw"></div>
+  <div class="resize-handle resize-se" data-direction="se"></div>
+
+  <div id="context-menu" class="hidden">
+    <button class="ctx-item" data-action="settings">
+      <span class="material-symbols-outlined">settings</span> Settings
+    </button>
+    <button class="ctx-item" data-action="lock">
+      <span class="material-symbols-outlined">lock</span> Lock (Click-through)
+    </button>
+    <button class="ctx-item" data-action="screenshot">
+      <span class="material-symbols-outlined">photo_camera</span> Screenshot
+    </button>
+    <button class="ctx-item" data-action="mute">
+      <span class="material-symbols-outlined">mic_off</span> Toggle Mute
+    </button>
+    <button class="ctx-item" data-action="change-model">
+      <span class="material-symbols-outlined">swap_horiz</span> Change Model
+    </button>
+    <div class="ctx-divider"></div>
+    <button class="ctx-item ctx-item-danger" data-action="quit">
+      <span class="material-symbols-outlined">logout</span> Quit
+    </button>
+  </div>
+
+  <script src="../../dist/renderer/bundle.js"></script>
+</body>
+</html>

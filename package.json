@@ -1,0 +1,46 @@
+{
+  "name": "gem-vtuber",
+  "version": "0.1.0",
+  "description": "AI-powered VTuber desktop companion driven by Gemini Live API — your screen-aware, emotionally expressive AI buddy that lives on your desktop",
+  "main": "src/main/main.js",
+  "scripts": {
+    "build": "node build.js && node -e \"const fs=require('fs');const p=require('path');fs.mkdirSync(p.join('dist','renderer'),{recursive:true});fs.copyFileSync(p.join('src','renderer','audio','pcm-processor.js'),p.join('dist','renderer','pcm-processor.js'))\"",
+    "prestart": "npm run build",
+    "start": "electron .",
+    "predev": "npm run build",
+    "dev": "electron . --dev",
+    "watch": "node build.js --watch",
+    "package": "npm run build && electron-builder --win",
+    "package:mac": "npm run build && electron-builder --mac",
+    "package:linux": "npm run build && electron-builder --linux"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/user/gem-vtuber"
+  },
+  "keywords": [
+    "vtuber",
+    "gemini",
+    "live2d",
+    "desktop-companion",
+    "ai-avatar",
+    "desktop-pet",
+    "gemini-live-api",
+    "ai-vtuber",
+    "virtual-assistant",
+    "transparent-overlay"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "live2d-renderer": "^0.6.6",
+    "live2dcubismcore": "^1.0.2",
+    "pixi.js": "^8.18.1",
+    "untitled-pixi-live2d-engine": "^1.2.0"
+  },
+  "devDependencies": {
+    "electron": "^42.2.0",
+    "electron-builder": "^26.8.1",
+    "esbuild": "^0.28.0"
+  }
+}
