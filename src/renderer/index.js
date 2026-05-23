@@ -62,7 +62,7 @@ async function init() {
   micCapture = new MicCapture();
 
   // 4. Initialize Lip Sync (connected to audio output)
-  lipSync = new LipSync(audioPlayer.getAnalyser());
+  lipSync = new LipSync(audioPlayer);
 
   // 5. Personality Engine
   personalityEngine = new PersonalityEngine();
@@ -97,6 +97,7 @@ async function loadSavedConfig() {
       if (config.personality) personalityEngine.setPersonality(config.personality);
       if (config.customPrompt) personalityEngine.setCustomPrompt(config.customPrompt);
       if (config.volume) audioPlayer.setVolume(config.volume / 100);
+      if (config.avatarScale !== undefined) avatarManager.setScale(config.avatarScale);
     }
 
     // Populate mic devices
@@ -120,6 +121,7 @@ function setupUICallbacks() {
       personalityEngine.setCustomPrompt(config.customPrompt);
     }
     audioPlayer.setVolume(config.volume / 100);
+    if (config.avatarScale !== undefined) avatarManager.setScale(config.avatarScale);
 
     if (window.electronAPI) {
       await window.electronAPI.saveConfig(config);
@@ -358,8 +360,16 @@ async function reconnectGemini() {
 // ─── Lip Sync Loop ──────────────────────────────────────────────────────────
 
 function startLipSyncLoop() {
-  function tick() {
+  // Bind directly for Live2D models so it syncs perfectly before physics
+  avatarManager.onLipSync = () => {
     lipSync.update(avatarManager);
+  };
+
+  // Fallback ticker for DefaultAvatar when no Live2D model is loaded
+  function tick() {
+    if (!avatarManager.model) {
+      lipSync.update(avatarManager);
+    }
     requestAnimationFrame(tick);
   }
   requestAnimationFrame(tick);

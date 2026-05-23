@@ -10,6 +10,8 @@ export class SettingsPanel {
     this.apiKeyToggle = document.getElementById('api-key-toggle');
     this.modelSelectBtn = document.getElementById('model-select-btn');
     this.modelNameDisplay = document.getElementById('model-name-display') || document.getElementById('model-name');
+    this.modelScaleSlider = document.getElementById('model-scale-slider');
+    this.modelScaleLabel = document.getElementById('model-scale-label');
     this.personalitySelect = document.getElementById('personality-select');
     this.customPersonality = document.getElementById('custom-personality');
     this.screenCaptureToggle = document.getElementById('screen-capture-toggle');
@@ -60,6 +62,10 @@ export class SettingsPanel {
       this.captureInterval.value = config.captureIntervalMinutes;
       this.captureIntervalLabel.textContent = `~${config.captureIntervalMinutes} min`;
     }
+    if (config.avatarScale !== undefined) {
+      this.modelScaleSlider.value = config.avatarScale;
+      this.modelScaleLabel.textContent = `${Number(config.avatarScale).toFixed(1)}x`;
+    }
     if (config.volume !== undefined) {
       this.volumeSlider.value = config.volume;
       this.volumeLabel.textContent = `${config.volume}%`;
@@ -82,6 +88,7 @@ export class SettingsPanel {
       customPrompt: this.customPersonality.value,
       screenCaptureEnabled: this.screenCaptureToggle.checked,
       captureIntervalMinutes: parseInt(this.captureInterval.value, 10),
+      avatarScale: parseFloat(this.modelScaleSlider.value),
       volume: parseInt(this.volumeSlider.value, 10),
       micDeviceId: this.micSelect.value,
     };
@@ -169,6 +176,12 @@ export class SettingsPanel {
         }
       }
     });
+
+    // Model scale slider
+    this.modelScaleSlider?.addEventListener('input', () => {
+      this.modelScaleLabel.textContent = `${Number(this.modelScaleSlider.value).toFixed(1)}x`;
+    });
+    this.modelScaleSlider?.addEventListener('change', () => this._emitChange());
 
     // Personality select
     this.personalitySelect?.addEventListener('change', () => {

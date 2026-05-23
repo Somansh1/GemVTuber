@@ -32,7 +32,7 @@ function createWindow() {
     alwaysOnTop: true,
     hasShadow: false,
     resizable: true,
-    skipTaskbar: false,
+    skipTaskbar: true,
     backgroundColor: '#00000000',
     icon: getAppIcon(),
     webPreferences: {
@@ -41,6 +41,7 @@ function createWindow() {
       nodeIntegration: false,
       sandbox: false,
       webSecurity: true,
+      backgroundThrottling: true,
     },
   });
 
@@ -61,7 +62,27 @@ function createWindow() {
 
   mainWindow.on('closed', () => {
     mainWindow = null;
+    if (mainWindow?._mouseTracker) clearInterval(mainWindow._mouseTracker);
   });
+
+  const { screen } = require('electron');
+  let counter = 0;
+  mainWindow._mouseTracker = setInterval(() => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      const point = screen.getCursorScreenPoint();
+      const bounds = mainWindow.getBounds();
+      
+      counter++;
+      if (counter % 60 === 0) {
+        console.log(`[MAIN] Global Mouse Point: ${point.x}, ${point.y}`);
+      }
+
+      mainWindow.webContents.send('global-mouse-move', {
+        x: point.x - bounds.x,
+        y: point.y - bounds.y
+      });
+    }
+  }, 16);
 }
 
 function getAppIcon() {

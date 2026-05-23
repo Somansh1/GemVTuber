@@ -14,6 +14,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.send('move-window', deltaX, deltaY);
   },
 
+  onGlobalMouseMove: (callback) => {
+    ipcRenderer.on('global-mouse-move', (event, coords) => callback(coords));
+  },
+
   // ─── Screen Capture ─────────────────────────────────────────────────
   getScreenSourceId: () => {
     return ipcRenderer.invoke('get-screen-source-id');

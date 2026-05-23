@@ -28,9 +28,10 @@ src/renderer/lib/live2dcubismcore*.js
 src/renderer/lib/live2d.min.js
 
 # User models (too large for git)
+tests/
 models/*
 !models/.gitkeep
-!models/default/
+models/Allium企划
 
 # OS files
 .DS_Store

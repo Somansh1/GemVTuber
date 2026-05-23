@@ -38,6 +38,14 @@ export class AudioPlayer {
   }
 
   /**
+   * Returns true if there are any active audio chunks playing.
+   * @returns {boolean}
+   */
+  get isPlaying() {
+    return this._activeSources.size > 0;
+  }
+
+  /**
    * Queues a PCM chunk for gapless playback.
    * @param {Int16Array|ArrayBuffer} data - 16-bit PCM audio data
    */

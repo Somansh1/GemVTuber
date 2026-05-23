@@ -14,14 +14,13 @@ function getEmotionTool(modelProfile) {
   if (modelProfile.expressions?.length > 0) {
     return {
       name: 'set_avatar_emotion',
-      description: 'Sets the avatar\'s facial expression to match your current mood or reaction. Call this whenever your emotional state changes during conversation — be expressive! Available expressions: ' + modelProfile.expressions.join(', '),
+      description: 'Changes the avatar facial expression to match your mood.',
       parameters: {
         type: 'OBJECT',
         properties: {
           emotion: {
             type: 'STRING',
-            enum: modelProfile.expressions,
-            description: 'The expression/emotion to display',
+            description: 'The semantic emotion to display (e.g. happy, sad, angry, surprised, neutral, blush, smirk)',
           },
         },
         required: ['emotion'],
@@ -36,18 +35,17 @@ function getMotionTool(modelProfile) {
   if (motionGroups.length > 0) {
     return {
       name: 'play_avatar_motion',
-      description: 'Plays a pre-made animation/motion on the avatar. Use for gestures like waving, nodding, or reacting physically. Available motion groups: ' + motionGroups.join(', '),
+      description: 'Plays a physical animation/gesture on the avatar.',
       parameters: {
         type: 'OBJECT',
         properties: {
           group: {
             type: 'STRING',
-            enum: motionGroups,
-            description: 'The motion group to play from',
+            description: 'The semantic motion to play (e.g. idle, wave, nod, shake, agree, reject)',
           },
           index: {
             type: 'INTEGER',
-            description: 'Motion index within the group (0 = first/random)',
+            description: 'Motion index (0 for random)',
           },
         },
         required: ['group'],

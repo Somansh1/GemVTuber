@@ -53,11 +53,25 @@ export class AvatarManager {
     this._mouseX = window.innerWidth / 2;
     this._mouseY = window.innerHeight / 2;
 
-    // Track mouse for eye follow
+    // Track mouse for eye follow (local window fallback)
     window.addEventListener('mousemove', (e) => {
       this._mouseX = e.clientX;
       this._mouseY = e.clientY;
     });
+
+    // Track mouse globally across the entire desktop screen
+    let globalCounter = 0;
+    if (window.electronAPI && window.electronAPI.onGlobalMouseMove) {
+      window.electronAPI.onGlobalMouseMove((coords) => {
+        globalCounter++;
+        if (globalCounter % 60 === 0) {
+          console.log(`[RENDERER] Global Mouse Point received: ${coords.x}, ${coords.y}`);
+        }
+        this._mouseX = coords.x;
+        this._mouseY = coords.y;
+        this._updateEyeFollow();
+      });
+    }
 
     // Handle window resize
     window.addEventListener('resize', () => this.resize());
@@ -95,7 +109,8 @@ export class AvatarManager {
 
     try {
       this.model = await Live2DModel.from(modelPath, {
-        autoInteract: false,
+        autoHitTest: true,
+        autoFocus: true,
         autoUpdate: true,
       });
 
@@ -109,6 +124,15 @@ export class AvatarManager {
 
       // Discover capabilities
       this.modelProfile = this.discoverCapabilities();
+
+      // Force our dynamic tracking (Lipsync) to apply on the official hook recommended by pixi-live2d-display
+      this.model.internalModel.on('afterModelUpdate', () => {
+        if (this.onLipSync) this.onLipSync();
+        // Force the WebAssembly core to recalculate the mesh with our overrides before the draw call!
+        if (this.model.internalModel.coreModel && this.model.internalModel.coreModel.update) {
+          this.model.internalModel.coreModel.update();
+        }
+      });
 
       return this.modelProfile;
     } catch (err) {
@@ -182,18 +206,23 @@ export class AvatarManager {
     });
     console.log('PARAM IDS:', paramIds);
     const hasBody = paramIds.some(id => id && typeof id.includes === 'function' && id.includes('Body'));
-    const hasMouthForm = paramIds.some(id => id === 'ParamMouthForm');
-    const hasMouthOpenY = paramIds.some(id => id === 'ParamMouthOpenY');
-    const hasBreathing = paramIds.some(id => id === 'ParamBreath');
-    const hasEyeFollow = paramIds.some(id => id === 'ParamAngleX' || id === 'ParamEyeBallX');
+    
+    // Support both Cubism 4 (ParamMouthForm) and Cubism 2 (PARAM_MOUTH_FORM)
+    const mouthFormId = paramIds.find(id => id === 'ParamMouthForm' || id === 'PARAM_MOUTH_FORM');
+    const mouthOpenYId = paramIds.find(id => id === 'ParamMouthOpenY' || id === 'PARAM_MOUTH_OPEN_Y');
+    
+    const hasBreathing = paramIds.some(id => id === 'ParamBreath' || id === 'PARAM_BREATH');
+    const hasEyeFollow = paramIds.some(id => id === 'ParamAngleX' || id === 'PARAM_ANGLE_X' || id === 'ParamEyeBallX');
 
     this.modelProfile = {
       parameters,
       expressions,
       motionGroups,
       hasBody,
-      hasMouthForm,
-      hasMouthOpenY,
+      hasMouthForm: !!mouthFormId,
+      mouthFormId,
+      hasMouthOpenY: !!mouthOpenYId,
+      mouthOpenYId,
       hasBreathing,
       hasEyeFollow,
       parameterIds: paramIds,
@@ -214,9 +243,27 @@ export class AvatarManager {
       return;
     }
     try {
-      this.model.internalModel.coreModel.setParameterValueById(id, value, weight);
-    } catch {
-      // Parameter might not exist on this model — that's fine
+      const core = this.model.internalModel.coreModel;
+      
+      // Try official Cubism 4 API first
+      if (typeof core.setParameterValueById === 'function') {
+        core.setParameterValueById(id, value, weight);
+        return;
+      }
+      
+      // Fallback for Cubism 2
+      if (typeof core.setParamFloat === 'function') {
+        core.setParamFloat(id, value, weight);
+        return;
+      }
+      
+      // Final fallback: Direct array mutation
+      const idx = this.modelProfile?.parameterIds?.indexOf(id);
+      if (idx >= 0 && core.parameters && core.parameters.values) {
+        core.parameters.values[idx] = value;
+      }
+    } catch (e) {
+      // Ignore missing params
     }
   }
 
@@ -229,11 +276,26 @@ export class AvatarManager {
       if (this.defaultAvatar) this.defaultAvatar.setEmotion(name);
       return;
     }
+    
+    // 1. Try exact match
     try {
       this.model.expression(name);
-    } catch {
-      // Try by index if name doesn't match
-      const idx = this.modelProfile?.expressions?.indexOf(name);
+      return;
+    } catch { }
+
+    // 2. Try fuzzy match (e.g. LLM outputs "happy" and file is "Happy.exp3")
+    if (this.modelProfile?.expressions) {
+      const lowerName = name.toLowerCase().trim();
+      const match = this.modelProfile.expressions.find(e => 
+        e.toLowerCase().includes(lowerName) || lowerName.includes(e.toLowerCase())
+      );
+      
+      if (match) {
+        try { this.model.expression(match); return; } catch { }
+      }
+      
+      // 3. Try index match if name is literally a number or mapped
+      const idx = this.modelProfile.expressions.indexOf(name);
       if (idx >= 0) {
         try { this.model.expression(idx); } catch { /* ignore */ }
       }
@@ -260,6 +322,17 @@ export class AvatarManager {
    */
   setEyeFollow(enabled) {
     this.eyeFollowEnabled = enabled;
+  }
+
+  /**
+   * Sets the global scale multiplier for the avatar.
+   * @param {number} scale
+   */
+  setScale(scale) {
+    this.scaleMultiplier = scale;
+    if (this.model) {
+      this._fitModelToWindow();
+    }
   }
 
   /**
@@ -326,9 +399,10 @@ export class AvatarManager {
 
     const scaleX = w / unscaledWidth;
     const scaleY = h / unscaledHeight;
-    const scale = Math.min(scaleX, scaleY) * 5; // Scaled up 3x as requested
+    const baseScale = Math.min(scaleX, scaleY) * 0.9; // Fit within window with 10% padding
+    const finalScale = baseScale * (this.scaleMultiplier || 5.0);
 
-    this.model.scale.set(scale);
+    this.model.scale.set(finalScale);
     this.model.anchor.set(0.5, 0.5);
     this.model.x = w / 2;
     // Shift slightly down so the character's head is closer to the center if it's a full-body model
@@ -348,25 +422,41 @@ export class AvatarManager {
     }
   }
 
-  /** @private Update eye follow based on mouse position. */
   _updateEyeFollow() {
     if (!this.eyeFollowEnabled || !this.model || !this.modelProfile?.hasEyeFollow) return;
 
     const w = window.innerWidth;
     const h = window.innerHeight;
+    // Convert screen coordinates into the model's local coordinate space
+    let localX = this._mouseX;
+    let localY = this._mouseY;
 
-    // Normalize mouse position to -1..1 range relative to window center
-    const nx = ((this._mouseX / w) - 0.5) * 2;
-    const ny = ((this._mouseY / h) - 0.5) * 2;
+    // Calculate pixel distance from the center of the avatar window
+    const deltaX = this._mouseX - (w / 2);
+    const deltaY = this._mouseY - (h / 2);
+    if (this.app && this.app.stage) {
+      // Create a point and convert it
+      const globalPoint = { x: this._mouseX, y: this._mouseY };
+      const localPoint = this.model.toLocal(globalPoint);
+      localX = localPoint.x;
+      localY = localPoint.y;
+    }
 
-    // Map to model parameters with smooth interpolation
-    const core = this.model.internalModel.coreModel;
+    // Normalize to -1..1 range (max out when mouse is 800px away)
+    const nx = Math.max(-1, Math.min(1, deltaX / 800));
+    const ny = Math.max(-1, Math.min(1, deltaY / 800));
+
+    // Native focus controller handles smooth interpolation and idle blending
+    // Native focus controller handles smooth interpolation, local transformation, and idle blending
     try {
-      core.setParameterValueById('ParamAngleX', nx * 30, 0.15);
-      core.setParameterValueById('ParamAngleY', -ny * 30, 0.15);
-      core.setParameterValueById('ParamEyeBallX', nx, 0.2);
-      core.setParameterValueById('ParamEyeBallY', -ny, 0.2);
-    } catch { /* parameters may not exist */ }
+      if (this.model.focus) {
+        this.model.focus(nx, -ny);
+        this.model.focus(localX, localY);
+      } else if (this.model.internalModel?.focusController) {
+        this.model.internalModel.focusController.focus(nx, -ny);
+        this.model.internalModel.focusController.focus(localX, localY);
+      }
+    } catch { /* ignore */ }
   }
 
   /** @private Attempt to load Cubism Core from CDN. */

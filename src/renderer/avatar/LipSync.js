@@ -5,14 +5,14 @@
  */
 export class LipSync {
   /**
-   * @param {AnalyserNode} analyserNode - Web Audio API AnalyserNode connected to audio output
+   * @param {import('./AudioPlayer').AudioPlayer} audioPlayer - The audio player instance
    */
-  constructor(analyserNode) {
-    this.analyser = analyserNode;
+  constructor(audioPlayer) {
+    this.audioPlayer = audioPlayer;
+    this.analyser = audioPlayer.getAnalyser();
     this.analyser.fftSize = 2048;
     this.analyser.smoothingTimeConstant = 0.6;
 
-    this.timeData = new Uint8Array(this.analyser.fftSize);
     this.freqData = new Uint8Array(this.analyser.frequencyBinCount);
 
     this.smoothingFactor = 0.35;
@@ -34,18 +34,24 @@ export class LipSync {
     const profile = avatarManager.modelProfile;
     if (!profile || (!profile.hasMouthOpenY && !profile.hasMouthForm)) return;
 
-    // ── Volume-based mouth opening ──
-    this.analyser.getByteTimeDomainData(this.timeData);
+    let targetVolume = 0;
 
-    let sum = 0;
-    // ⚡ Bolt Optimization: Hoisted division out of the hot loop to save 2048 float operations per frame
-    // Since (val/128)^2 === (val^2)/16384, we sum the squares first and divide by 16384 outside the loop.
-    for (let i = 0; i < this.timeData.length; i++) {
-      const val = this.timeData[i] - 128;
-      sum += val * val;
+    // ── Volume-based mouth opening ──
+    if (this.audioPlayer && this.audioPlayer.isPlaying) {
+      if (!this.floatTimeData) {
+        this.floatTimeData = new Float32Array(this.analyser.fftSize);
+      }
+      this.analyser.getFloatTimeDomainData(this.floatTimeData);
+
+      let sum = 0;
+      for (let i = 0; i < this.floatTimeData.length; i++) {
+        const val = this.floatTimeData[i];
+        sum += val * val;
+      }
+      
+      const rms = Math.sqrt(sum / this.floatTimeData.length);
+      targetVolume = Math.min(rms * 8.0, 1.0);
     }
-    const rms = Math.sqrt((sum / 16384) / this.timeData.length);
-    const targetVolume = Math.min(rms * 4.5, 1.0);
 
     // Smooth transition
     this._currentVolume += (targetVolume - this._currentVolume) * this.smoothingFactor;
@@ -61,12 +67,12 @@ export class LipSync {
     }
 
     // Apply to model
-    if (profile.hasMouthOpenY) {
-      avatarManager.setParameter('ParamMouthOpenY', Math.max(0, this._currentVolume));
+    if (profile.hasMouthOpenY && profile.mouthOpenYId) {
+      avatarManager.setParameter(profile.mouthOpenYId, Math.max(0, this._currentVolume));
     }
 
     // ── Frequency-based mouth form (vowel shape) ──
-    if (profile.hasMouthForm) {
+    if (profile.hasMouthForm && profile.mouthFormId) {
       this.analyser.getByteFrequencyData(this.freqData);
 
       const lowEnergy = this._avgRange(0, 8);    // ~0-350 Hz
@@ -83,7 +89,7 @@ export class LipSync {
 
       // Only apply mouth form if the model supports it and there's audio
       if (this._currentVolume > 0.05) {
-        avatarManager.setParameter('ParamMouthForm', this._currentMouthForm);
+        avatarManager.setParameter(profile.mouthFormId, this._currentMouthForm);
       }
     }
   }
