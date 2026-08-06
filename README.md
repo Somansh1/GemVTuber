@@ -81,6 +81,17 @@ A cute default avatar appears on your desktop. Right-click → Settings → past
 
 ---
 
+## ⌨️ Hotkeys
+
+GemVTuber supports global hotkeys so you can talk even while gaming or working in other apps:
+
+- **`Ctrl + \`` (Hold):** Push-to-Talk. Unmutes the mic while held, mutes when released.
+- **`Ctrl + Space`:** Toggle Mic. Permanently turns the mic on or off.
+
+*(Note: Use `Cmd` instead of `Ctrl` on macOS)*
+
+---
+
 ## 🎭 Bring Your Own Model
 
 GemVTuber works with **any Live2D model** out of the box:
@@ -184,7 +195,7 @@ graph LR
 - [x] Screen capture & contextual awareness
 - [x] Personality system with memory
 - [ ] VRM (3D model) support
-- [ ] Push-to-talk hotkey
+- [x] Push-to-talk hotkey
 - [ ] Multi-monitor support
 - [ ] OBS capture source for streaming
 - [ ] Plugin system for custom tools

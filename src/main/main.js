@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell, dialog, nativeImage, safeStorage, protocol } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, dialog, nativeImage, safeStorage, protocol, globalShortcut } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -13,6 +13,9 @@ const { ScreenCaptureService } = require('./screenCapture');
 let mainWindow = null;
 let tray = null;
 let screenCapture = null;
+
+// ─── Push-to-Talk State ─────────────────────────────────────────────────────
+let pttKeyDown = false;
 
 const CONFIG_PATH = path.join(app.getPath('userData'), 'config.json');
 const logsDir = path.join(app.getPath('userData'), 'logs');
@@ -388,6 +391,9 @@ app.whenReady().then(async () => {
   if (config.screenCaptureEnabled !== false) {
     screenCapture.start(config.captureIntervalMinutes || 7);
   }
+
+  // ─── Push-to-Talk Global Hotkey (Ctrl+`) ──────────────────────────────
+  registerPTTHotkey();
 });
 
 app.on('window-all-closed', () => {
@@ -401,4 +407,61 @@ app.on('activate', () => {
 app.on('before-quit', () => {
   if (screenCapture) screenCapture.stop();
   if (chatLogStream) chatLogStream.end();
+  globalShortcut.unregisterAll();
 });
+
+// ─── Push-to-Talk Hotkey Logic ──────────────────────────────────────────────
+
+function registerPTTHotkey() {
+  // ── Ctrl+` : Hold to talk (PTT) ─────────────────────────────────────────
+  const pttAccelerator = 'CommandOrControl+`';
+  let lastRepeatTime = 0;
+  let releaseChecker = null;
+
+  const pttOk = globalShortcut.register(pttAccelerator, () => {
+    lastRepeatTime = Date.now();
+
+    if (!pttKeyDown) {
+      // First press — unmute
+      pttKeyDown = true;
+
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('ptt-key-down');
+      }
+
+      // Detect release via gap in keyboard-repeat events
+      releaseChecker = setInterval(() => {
+        if (Date.now() - lastRepeatTime > 250) {
+          clearInterval(releaseChecker);
+          releaseChecker = null;
+          pttKeyDown = false;
+
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('ptt-key-up');
+          }
+        }
+      }, 50);
+    }
+  });
+
+  if (!pttOk) {
+    console.warn('[PTT] Failed to register hold-to-talk hotkey:', pttAccelerator);
+  } else {
+    console.log('[PTT] Hold-to-talk registered: Ctrl+`');
+  }
+
+  // ── Ctrl+Space : Toggle mic on/off ──────────────────────────────────────
+  const toggleAccelerator = 'CommandOrControl+Space';
+
+  const toggleOk = globalShortcut.register(toggleAccelerator, () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('ptt-toggle');
+    }
+  });
+
+  if (!toggleOk) {
+    console.warn('[PTT] Failed to register toggle hotkey:', toggleAccelerator);
+  } else {
+    console.log('[PTT] Mic toggle registered: Ctrl+Space');
+  }
+}
