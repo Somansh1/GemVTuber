@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell, dialog, nativeImage, safeStorage, protocol } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, dialog, nativeImage, safeStorage, protocol, globalShortcut } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -15,9 +15,31 @@ let tray = null;
 let screenCapture = null;
 
 const CONFIG_PATH = path.join(app.getPath('userData'), 'config.json');
+const CHAT_HISTORY_PATH = path.join(app.getPath('userData'), 'chatHistory.json');
+const SESSIONS_DIR = path.join(app.getPath('userData'), 'sessions');
+const SESSIONS_META_PATH = path.join(SESSIONS_DIR, 'metadata.json');
 const logsDir = path.join(app.getPath('userData'), 'logs');
 const screenshotsDir = path.join(logsDir, 'screenshots');
 let chatLogStream = null;
+
+async function ensureSessionsDir() {
+  try { await fs.promises.mkdir(SESSIONS_DIR, { recursive: true }); } catch (e) {}
+}
+
+async function getSessionMetadata() {
+  await ensureSessionsDir();
+  try {
+    const data = await fs.promises.readFile(SESSIONS_META_PATH, 'utf-8');
+    return JSON.parse(data);
+  } catch {
+    return [];
+  }
+}
+
+async function saveSessionMetadata(metadata) {
+  await ensureSessionsDir();
+  await fs.promises.writeFile(SESSIONS_META_PATH, JSON.stringify(metadata), 'utf-8');
+}
 
 // ─── Window Creation ────────────────────────────────────────────────────────
 
@@ -66,16 +88,12 @@ function createWindow() {
   });
 
   const { screen } = require('electron');
-  let counter = 0;
   mainWindow._mouseTracker = setInterval(() => {
     if (mainWindow && !mainWindow.isDestroyed()) {
       const point = screen.getCursorScreenPoint();
       const bounds = mainWindow.getBounds();
-      
-      counter++;
-      if (counter % 60 === 0) {
-        console.log(`[MAIN] Global Mouse Point: ${point.x}, ${point.y}`);
-      }
+
+      // console.log(`[MAIN] Global Mouse Point: ${point.x}, ${point.y}`);
 
       mainWindow.webContents.send('global-mouse-move', {
         x: point.x - bounds.x,
@@ -217,6 +235,116 @@ function setupIPC() {
     }
   });
 
+  ipcMain.handle('get-chat-api-key', async () => {
+    try {
+      const config = await loadConfig();
+      if (config.encryptedChatApiKey && safeStorage.isEncryptionAvailable()) {
+        const decrypted = safeStorage.decryptString(Buffer.from(config.encryptedChatApiKey, 'base64'));
+        return decrypted;
+      }
+      return config.chatApiKey || null;
+    } catch {
+      return null;
+    }
+  });
+
+  ipcMain.handle('set-chat-api-key', async (event, key) => {
+    try {
+      const config = await loadConfig();
+      if (safeStorage.isEncryptionAvailable()) {
+        const encrypted = safeStorage.encryptString(key);
+        config.encryptedChatApiKey = encrypted.toString('base64');
+        delete config.chatApiKey;
+      } else {
+        config.chatApiKey = key; 
+      }
+      saveConfig(config);
+      return true;
+    } catch {
+      return false;
+    }
+  });
+
+  ipcMain.handle('get-chat-sessions', async () => {
+    let meta = await getSessionMetadata();
+    
+    // Migration: If no sessions exist, but old chatHistory.json does, migrate it.
+    if (meta.length === 0 && fs.existsSync(CHAT_HISTORY_PATH)) {
+      try {
+        const oldData = await fs.promises.readFile(CHAT_HISTORY_PATH, 'utf-8');
+        const oldMessages = JSON.parse(oldData);
+        if (oldMessages && oldMessages.length > 0) {
+          const id = Date.now().toString();
+          const title = oldMessages[0]?.content?.substring(0, 30) || 'Imported Session';
+          meta = [{ id, title, updatedAt: Date.now() }];
+          await saveSessionMetadata(meta);
+          await fs.promises.writeFile(path.join(SESSIONS_DIR, `${id}.json`), JSON.stringify(oldMessages), 'utf-8');
+          // Optionally delete old file, but we'll leave it for safety
+        }
+      } catch (e) {
+        console.error('Migration failed:', e);
+      }
+    }
+    
+    return meta;
+  });
+
+  ipcMain.handle('get-chat-session', async (event, id) => {
+    try {
+      const sessionPath = path.join(SESSIONS_DIR, `${id}.json`);
+      const data = await fs.promises.readFile(sessionPath, 'utf-8');
+      return JSON.parse(data);
+    } catch {
+      return [];
+    }
+  });
+
+  ipcMain.handle('save-chat-session', async (event, id, title, messages) => {
+    try {
+      let meta = await getSessionMetadata();
+      const existingIdx = meta.findIndex(m => m.id === id);
+      
+      const sessionData = {
+        id,
+        title: title || 'New Chat',
+        updatedAt: Date.now()
+      };
+
+      if (existingIdx >= 0) {
+        meta[existingIdx] = sessionData;
+      } else {
+        meta.unshift(sessionData); // Add to top
+      }
+      
+      // Sort by newest first
+      meta.sort((a, b) => b.updatedAt - a.updatedAt);
+      
+      await saveSessionMetadata(meta);
+      const sessionPath = path.join(SESSIONS_DIR, `${id}.json`);
+      await fs.promises.writeFile(sessionPath, JSON.stringify(messages), 'utf-8');
+      return true;
+    } catch (e) {
+      console.error('Save session failed:', e);
+      return false;
+    }
+  });
+
+  ipcMain.handle('delete-chat-session', async (event, id) => {
+    try {
+      let meta = await getSessionMetadata();
+      meta = meta.filter(m => m.id !== id);
+      await saveSessionMetadata(meta);
+      
+      const sessionPath = path.join(SESSIONS_DIR, `${id}.json`);
+      if (fs.existsSync(sessionPath)) {
+        await fs.promises.unlink(sessionPath);
+      }
+      return true;
+    } catch {
+      return false;
+    }
+  });
+
   ipcMain.handle('find-default-model', async () => {
     try {
       const modelsDir = path.join(__dirname, '..', '..', 'models');
@@ -282,7 +410,13 @@ function setupIPC() {
 
   ipcMain.handle('get-config', async () => {
     const config = await loadConfig();
-    const { encryptedApiKey: _encryptedApiKey, apiKey: _apiKey, ...safeConfig } = config;
+    const { 
+      encryptedApiKey: _encryptedApiKey, 
+      apiKey: _apiKey, 
+      encryptedChatApiKey: _encryptedChatApiKey,
+      chatApiKey: _chatApiKey,
+      ...safeConfig 
+    } = config;
     return safeConfig;
   });
 
@@ -344,6 +478,20 @@ function setupIPC() {
       mainWindow.webContents.send('toggle-settings');
     }
   });
+
+  ipcMain.on('minimize-window', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      if (mainWindow.isMinimized()) {
+        mainWindow.restore();
+      } else {
+        mainWindow.minimize();
+      }
+    }
+  });
+
+  ipcMain.on('update-minimize-shortcut', (event, shortcut) => {
+    registerMinimizeShortcut(shortcut);
+  });
 }
 
 // ─── Config Helpers ─────────────────────────────────────────────────────────
@@ -388,6 +536,9 @@ app.whenReady().then(async () => {
   if (config.screenCaptureEnabled !== false) {
     screenCapture.start(config.captureIntervalMinutes || 7);
   }
+
+  // Register minimize shortcut
+  registerMinimizeShortcut(config.minimizeShortcut || 'Ctrl+M');
 });
 
 app.on('window-all-closed', () => {
@@ -399,6 +550,39 @@ app.on('activate', () => {
 });
 
 app.on('before-quit', () => {
+  globalShortcut.unregisterAll();
   if (screenCapture) screenCapture.stop();
   if (chatLogStream) chatLogStream.end();
 });
+
+// ─── Global Shortcut Helper ─────────────────────────────────────────────────
+
+function registerMinimizeShortcut(shortcut) {
+  try {
+    globalShortcut.unregisterAll();
+    if (!shortcut) return;
+
+    // Convert friendly names to Electron accelerator format
+    const accelerator = shortcut
+      .replace('Ctrl', 'CommandOrControl')
+      .replace('Super', 'Super');
+
+    const registered = globalShortcut.register(accelerator, () => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        if (mainWindow.isMinimized()) {
+          mainWindow.restore();
+          mainWindow.focus();
+        } else {
+          mainWindow.minimize();
+        }
+        mainWindow.webContents.send('minimize-toggle');
+      }
+    });
+
+    if (!registered) {
+      console.warn(`[MAIN] Failed to register shortcut: ${shortcut}`);
+    }
+  } catch (e) {
+    console.error(`[MAIN] Error registering shortcut '${shortcut}':`, e.message);
+  }
+}

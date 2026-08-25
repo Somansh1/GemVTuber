@@ -1,0 +1,10 @@
+---
+tags: [project/gem-vtuber]
+---
+# Personality and Memory
+
+PersonalityEngine is the renderer's long-term brain, holding three concerns in one class. Personality: five built-in prompt texts (caring, playful, sarcastic, strict, chill - each a full character paragraph for a companion named Gem) selectable by type, with a custom free-text prompt taking over when type is 'custom'; getPersonalityPrompt falls back to caring when handed an unknown type. Screen context: addScreenCapture records only timestamps plus a 100-character prefix of each capture's base64 ("just metadata"), keeping at most ten; getScreenContext renders these as "observed N minutes ago" lines with any stored observation summaries and appends getActivitySummary, which flags sessions longer than about thirty minutes and suggests checking in past an hour. Memory: addMemory dedupes into a fifty-entry FIFO of plain strings.
+
+Persistence is localStorage under key gemvtuber_personality storing type, customPrompt, and memories - personality and memories therefore survive app restarts within the same Electron partition, while screen-capture references deliberately do not. Saves are debounced on a one-second timer to keep synchronous storage writes off the UI's back; loads tolerate missing or corrupt data silently.
+
+The design consequence that shapes UX: the system instruction is fixed per WebSocket session, so personality changes cannot take effect incrementally. index.js's settings handler detects an old-to-new personality or customPrompt change and forces reconnectGemini, showing an "Updating personality..." subtitle, whereas volume and avatar scale apply live. Memories reach the model through generateSystemInstruction's Things You Remember section at each connect ([[Tool Calling]]), and grow mid-session via the remember_context tool call. Back to [[Home]].

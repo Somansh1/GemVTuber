@@ -8,6 +8,11 @@ export class SettingsPanel {
     this.closeBtn = document.getElementById('settings-close');
     this.apiKeyInput = document.getElementById('api-key-input');
     this.apiKeyToggle = document.getElementById('api-key-toggle');
+    this.chatApiKeyInput = document.getElementById('chat-api-key-input');
+    this.chatApiKeyToggle = document.getElementById('chat-api-key-toggle');
+    this.chatBaseUrlInput = document.getElementById('chat-base-url-input');
+    this.chatModelNameInput = document.getElementById('chat-model-name-input');
+    this.chatMaxTokensInput = document.getElementById('chat-max-tokens-input');
     this.modelSelectBtn = document.getElementById('model-select-btn');
     this.modelNameDisplay = document.getElementById('model-name-display') || document.getElementById('model-name');
     this.modelScaleSlider = document.getElementById('model-scale-slider');
@@ -22,6 +27,9 @@ export class SettingsPanel {
     this.volumeLabel = document.getElementById('volume-label');
     this.aiStudioLink = document.getElementById('ai-studio-link');
     this.saveBtn = document.getElementById('settings-save-btn');
+    this.minimizeShortcutInput = document.getElementById('minimize-shortcut-input');
+    this.minimizeShortcutRecordBtn = document.getElementById('minimize-shortcut-record-btn');
+    this._isRecordingShortcut = false;
 
     this._onSaveCallback = null;
     this._onModelSelect = null;
@@ -55,6 +63,10 @@ export class SettingsPanel {
    */
   loadSettings(config) {
     if (config.apiKey) this.apiKeyInput.value = config.apiKey;
+    if (config.chatApiKey) this.chatApiKeyInput.value = config.chatApiKey;
+    if (config.chatBaseUrl) this.chatBaseUrlInput.value = config.chatBaseUrl;
+    if (config.chatModelName) this.chatModelNameInput.value = config.chatModelName;
+    if (config.chatMaxTokens) this.chatMaxTokensInput.value = config.chatMaxTokens;
     if (config.personality) this.personalitySelect.value = config.personality;
     if (config.customPrompt) this.customPersonality.value = config.customPrompt;
     if (config.screenCaptureEnabled !== undefined) this.screenCaptureToggle.checked = config.screenCaptureEnabled;
@@ -73,6 +85,9 @@ export class SettingsPanel {
     if (config.modelName) {
       this.modelNameDisplay.textContent = config.modelName;
     }
+    if (config.minimizeShortcut) {
+      this.minimizeShortcutInput.value = config.minimizeShortcut;
+    }
 
     // Show/hide custom personality
     this.customPersonality.classList.toggle('hidden', this.personalitySelect.value !== 'custom');
@@ -84,6 +99,9 @@ export class SettingsPanel {
    */
   getSettings() {
     return {
+      chatBaseUrl: this.chatBaseUrlInput.value,
+      chatModelName: this.chatModelNameInput.value,
+      chatMaxTokens: parseInt(this.chatMaxTokensInput.value, 10) || 4096,
       personality: this.personalitySelect.value,
       customPrompt: this.customPersonality.value,
       screenCaptureEnabled: this.screenCaptureToggle.checked,
@@ -91,6 +109,7 @@ export class SettingsPanel {
       avatarScale: parseFloat(this.modelScaleSlider.value),
       volume: parseInt(this.volumeSlider.value, 10),
       micDeviceId: this.micSelect.value,
+      minimizeShortcut: this.minimizeShortcutInput.value || 'Ctrl+M',
     };
   }
 
@@ -165,6 +184,28 @@ export class SettingsPanel {
       this._emitChange();
     });
 
+    // Chat API key show/hide toggle
+    this.chatApiKeyToggle?.addEventListener('click', () => {
+      const isPassword = this.chatApiKeyInput.type === 'password';
+      this.chatApiKeyInput.type = isPassword ? 'text' : 'password';
+      const icon = this.chatApiKeyToggle.querySelector('.material-symbols-outlined');
+      if (icon) icon.textContent = isPassword ? 'visibility_off' : 'visibility';
+    });
+
+    // Chat API key save on blur
+    this.chatApiKeyInput?.addEventListener('change', async () => {
+      const key = this.chatApiKeyInput.value.trim();
+      if (key && window.electronAPI) {
+        await window.electronAPI.setChatApiKey(key);
+      }
+      this._emitChange();
+    });
+
+    // Chat settings changes
+    this.chatBaseUrlInput?.addEventListener('change', () => this._emitChange());
+    this.chatModelNameInput?.addEventListener('change', () => this._emitChange());
+    this.chatMaxTokensInput?.addEventListener('change', () => this._emitChange());
+
     // Model selection
     this.modelSelectBtn?.addEventListener('click', async () => {
       if (window.electronAPI) {
@@ -217,6 +258,49 @@ export class SettingsPanel {
 
     // Mic select
     this.micSelect?.addEventListener('change', () => this._emitChange());
+
+    // Minimize shortcut recording
+    this.minimizeShortcutRecordBtn?.addEventListener('click', () => {
+      if (this._isRecordingShortcut) return;
+      this._isRecordingShortcut = true;
+      this.minimizeShortcutInput.value = 'Press keys...';
+      this.minimizeShortcutInput.classList.add('border-primary', 'ring-1', 'ring-primary');
+      this.minimizeShortcutRecordBtn.textContent = 'Listening...';
+
+      const handler = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        // Ignore standalone modifier keys
+        if (['Control', 'Shift', 'Alt', 'Meta'].includes(e.key)) return;
+
+        const parts = [];
+        if (e.ctrlKey) parts.push('Ctrl');
+        if (e.altKey) parts.push('Alt');
+        if (e.shiftKey) parts.push('Shift');
+        if (e.metaKey) parts.push('Super');
+
+        let key = e.key;
+        // Normalize key names
+        if (key === ' ') key = 'Space';
+        else if (key.length === 1) key = key.toUpperCase();
+        else if (key === 'ArrowUp') key = 'Up';
+        else if (key === 'ArrowDown') key = 'Down';
+        else if (key === 'ArrowLeft') key = 'Left';
+        else if (key === 'ArrowRight') key = 'Right';
+
+        parts.push(key);
+
+        this.minimizeShortcutInput.value = parts.join('+');
+        this.minimizeShortcutInput.classList.remove('border-primary', 'ring-1', 'ring-primary');
+        this.minimizeShortcutRecordBtn.textContent = 'Record';
+        this._isRecordingShortcut = false;
+        document.removeEventListener('keydown', handler, true);
+        this._emitChange();
+      };
+
+      document.addEventListener('keydown', handler, true);
+    });
 
     // Listen for toggle from tray
     if (window.electronAPI) {

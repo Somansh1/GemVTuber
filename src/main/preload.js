@@ -40,6 +40,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // ─── API Key ────────────────────────────────────────────────────────
   getApiKey: () => ipcRenderer.invoke('get-api-key'),
   setApiKey: (key) => ipcRenderer.invoke('set-api-key', key),
+  getChatApiKey: () => ipcRenderer.invoke('get-chat-api-key'),
+  setChatApiKey: (key) => ipcRenderer.invoke('set-chat-api-key', key),
+
+  // ─── Chat Sessions ───────────────────────────────────────────────────
+  getChatSessions: () => ipcRenderer.invoke('get-chat-sessions'),
+  getChatSession: (id) => ipcRenderer.invoke('get-chat-session', id),
+  saveChatSession: (id, title, messages) => ipcRenderer.invoke('save-chat-session', id, title, messages),
+  deleteChatSession: (id) => ipcRenderer.invoke('delete-chat-session', id),
 
   // ─── Model Selection ───────────────────────────────────────────────
   selectModelFile: () => ipcRenderer.invoke('select-model-file'),
@@ -57,6 +65,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // ─── App Control ───────────────────────────────────────────────────
   quitApp: () => {
     ipcRenderer.send('quit-app');
+  },
+
+  minimizeWindow: () => {
+    ipcRenderer.send('minimize-window');
+  },
+
+  updateMinimizeShortcut: (shortcut) => {
+    ipcRenderer.send('update-minimize-shortcut', shortcut);
+  },
+
+  onMinimizeToggle: (callback) => {
+    ipcRenderer.on('minimize-toggle', () => callback());
   },
 
   // ─── Events from Main Process ──────────────────────────────────────

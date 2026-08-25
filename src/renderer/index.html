@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' file: local: blob: data:; connect-src 'self' file: local: blob: data: wss://generativelanguage.googleapis.com; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cubism.live2d.com https://cdn.tailwindcss.com; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; media-src 'self' file: local: blob: data:; img-src 'self' data: blob: local: file: https://lh3.googleusercontent.com">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' file: local: blob: data:; connect-src 'self' file: local: blob: data: wss://generativelanguage.googleapis.com https://integrate.api.nvidia.com; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cubism.live2d.com https://cdn.tailwindcss.com; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; media-src 'self' file: local: blob: data:; img-src 'self' data: blob: local: file: https://lh3.googleusercontent.com">
   <title>GemVTuber</title>
   
   <link href="https://fonts.googleapis.com" rel="preconnect">
@@ -99,6 +99,9 @@
     </div>
     <div class="status-divider"></div>
     <div class="status-actions">
+      <button id="reconnect-btn" class="status-action-btn" title="Reconnect API">
+        <span class="material-symbols-outlined">refresh</span>
+      </button>
       <button id="mic-indicator" class="status-action-btn mic-off" title="Toggle Microphone">
         <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">mic</span>
       </button>
@@ -111,6 +114,52 @@
     </div>
   </nav>
 
+  <!-- Live / Chat Pill Toggle -->
+  <div id="mode-toggle-container" class="fixed top-4 left-1/2 -translate-x-1/2 z-50 inline-flex w-fit items-center p-1 rounded-full bg-surface-container/50 backdrop-blur-md border border-outline-variant/30 shadow-lg bg-noise" style="app-region: no-drag;">
+    <div id="mode-active-bg" class="absolute top-1 bottom-1 left-1 rounded-full bg-primary/20 transition-all duration-300 ease-out"></div>
+    <button id="mode-live-btn" class="relative z-10 px-4 py-1.5 rounded-full font-label-md text-[13px] transition-colors duration-300 text-primary font-medium">Live</button>
+    <button id="mode-chat-btn" class="relative z-10 px-4 py-1.5 rounded-full font-label-md text-[13px] transition-colors duration-300 text-on-surface-variant hover:text-on-surface">Chat</button>
+  </div>
+
+  <!-- Chat Application Overlay -->
+  <div id="chat-app-overlay" class="hidden fixed inset-0 z-40 bg-transparent pointer-events-none flex flex-col items-center pt-16 pb-6 px-4">
+    <div class="w-full max-w-2xl h-full flex flex-col pointer-events-auto overflow-hidden bg-surface-container/30 backdrop-blur-md rounded-3xl border border-outline-variant/30 shadow-2xl chat-interactive-container">
+      
+      <!-- Messages Area -->
+      <div id="chat-app-messages" class="flex-1 min-h-0 overflow-y-auto custom-scrollbar p-6">
+        <div class="flex flex-col gap-1.5 items-center justify-center h-full text-on-surface-variant opacity-50">
+          <span class="material-symbols-outlined text-4xl">chat_bubble</span>
+          <p class="font-body-md text-sm">Start a conversation</p>
+        </div>
+      </div>
+      
+      <!-- Image Preview Area -->
+      <div id="chat-app-image-preview-container" class="hidden px-4 pt-2 flex gap-2 overflow-x-auto">
+        <!-- Previews will be injected here -->
+      </div>
+      
+      <!-- Input Area -->
+      <div class="p-4 pointer-events-auto">
+        <div class="flex items-end gap-2 bg-surface-container-highest/80 backdrop-blur-sm border border-outline-variant/50 rounded-xl px-3 py-2 focus-within:border-primary-container focus-within:ring-1 focus-within:ring-primary-container transition-all shadow-lg">
+          <button id="chat-app-settings-btn" class="p-1.5 text-on-surface-variant hover:text-on-surface hover:bg-surface-variant/50 rounded-full transition-colors flex items-center justify-center shrink-0 mb-0.5" title="Settings">
+            <span class="material-symbols-outlined text-[20px]">settings</span>
+          </button>
+          <button id="chat-app-attach-btn" class="p-1.5 text-on-surface-variant hover:text-on-surface hover:bg-surface-variant/50 rounded-full transition-colors flex items-center justify-center shrink-0 mb-0.5" title="Attach Image">
+            <span class="material-symbols-outlined text-[20px]">add_photo_alternate</span>
+          </button>
+          <button id="chat-app-screenshot-btn" class="p-1.5 text-on-surface-variant hover:text-on-surface hover:bg-surface-variant/50 rounded-full transition-colors flex items-center justify-center shrink-0 mb-0.5" title="Take Screenshot">
+            <span class="material-symbols-outlined text-[20px]">screenshot_monitor</span>
+          </button>
+          <input type="file" id="chat-app-file-input" class="hidden" accept="image/png, image/jpeg, image/webp, image/gif">
+          <textarea id="chat-app-input" class="flex-1 bg-transparent border-none focus:outline-none focus:ring-0 resize-none font-body-md text-[14px] text-on-surface max-h-[120px] min-h-[24px] py-1.5" rows="1" placeholder="Message..."></textarea>
+          <button id="chat-app-send-btn" class="p-1.5 text-primary hover:bg-primary/20 rounded-full transition-colors flex items-center justify-center shrink-0 mb-0.5" title="Send">
+            <span class="material-symbols-outlined text-[20px]">send</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div id="subtitle-container" class="hidden">
     <p id="subtitle-text"></p>
   </div>
@@ -118,6 +167,33 @@
   <div id="chat-panel" class="fixed left-6 bottom-20 w-[320px] max-h-[300px] flex flex-col gap-2 overflow-y-auto custom-scrollbar z-40 pointer-events-none p-2 rounded-xl transition-all opacity-0">
     <!-- Chat messages will be dynamically added here -->
   </div>
+
+  <!-- Chat Sessions Pill (Top Right in Chat Mode) -->
+  <div id="chat-sessions-pill" class="hidden fixed top-4 right-4 z-50 flex flex-col items-center gap-1 p-1.5 rounded-full bg-surface-container/50 backdrop-blur-md border border-outline-variant/30 shadow-lg bg-noise pointer-events-auto">
+    <button id="chat-session-new-btn" class="w-8 h-8 text-on-surface hover:bg-surface-variant/50 rounded-full transition-colors flex items-center justify-center shrink-0 cursor-pointer" title="New Session">
+      <span class="material-symbols-outlined text-[18px] pointer-events-none">add</span>
+    </button>
+    <button id="chat-session-list-btn" class="w-8 h-8 text-on-surface hover:bg-surface-variant/50 rounded-full transition-colors flex items-center justify-center shrink-0 cursor-pointer" title="View Sessions">
+      <span class="material-symbols-outlined text-[18px] pointer-events-none">history</span>
+    </button>
+    <div class="w-5 h-[1px] bg-outline-variant/40 my-0.5 self-center"></div>
+    <button id="chat-minimize-btn" class="w-8 h-8 text-on-surface hover:bg-surface-variant/50 rounded-full transition-colors flex items-center justify-center shrink-0 cursor-pointer" title="Minimize (Ctrl+M)">
+      <span class="material-symbols-outlined text-[18px] pointer-events-none">remove</span>
+    </button>
+  </div>
+
+  <!-- Chat Sessions Sidebar -->
+  <aside id="chat-sessions-panel" class="hidden fixed right-6 top-6 bottom-6 w-[280px] h-[calc(100vh-48px)] flex flex-col z-50 bg-[#1e1f22] border border-outline-variant/30 rounded-[16px] shadow-2xl animate-slideInRight overflow-hidden">
+    <header class="flex justify-between items-center px-4 py-3 border-b border-outline-variant/30 shrink-0 bg-[#1e1f22]">
+      <h1 class="font-headline-sm text-[16px] text-on-surface">Chat Sessions</h1>
+      <button id="chat-sessions-close" class="w-8 h-8 text-on-surface-variant hover:text-on-surface hover:bg-surface-variant/50 rounded-full transition-colors flex items-center justify-center pointer-events-auto cursor-pointer shrink-0">
+        <span class="material-symbols-outlined text-[18px] pointer-events-none">close</span>
+      </button>
+    </header>
+    <div id="chat-sessions-list" class="flex-1 overflow-y-auto p-2 flex flex-col gap-1 custom-scrollbar relative">
+      <!-- Sessions injected here -->
+    </div>
+  </aside>
 
   <aside id="settings-panel" class="hidden fixed right-6 top-6 bottom-6 w-[360px] h-[calc(100vh-48px)] flex flex-col z-50 bg-[#1e1f22] border border-outline-variant/30 rounded-[16px] shadow-2xl animate-slideInRight overflow-hidden">
     <header class="flex justify-between items-center px-4 py-3 border-b border-outline-variant/30 shrink-0 bg-[#1e1f22]">
@@ -138,10 +214,10 @@
     <div class="flex-1 overflow-y-auto p-4 flex flex-col gap-6 custom-scrollbar relative">
       <section class="flex flex-col gap-3">
         <h2 class="font-section-header text-[10px] text-outline uppercase flex items-center gap-2">
-          <span class="material-symbols-outlined text-[14px]">api</span> API Connection
+          <span class="material-symbols-outlined text-[14px]">api</span> API Connection (Live Mode)
         </h2>
         <div class="flex flex-col gap-2">
-          <label class="font-label-sm text-[11px] text-on-surface">API Key</label>
+          <label class="font-label-sm text-[11px] text-on-surface">Gemini API Key</label>
           <div class="relative flex items-center" id="api-key-toggle-wrapper">
             <input id="api-key-input" class="w-full bg-surface-container-highest/50 border border-outline-variant/50 rounded pl-3 pr-10 py-1.5 font-mono text-[12px] text-on-surface focus:outline-none focus:border-primary-container focus:ring-1 focus:ring-primary-container transition-all" type="password" placeholder="Paste your API key here">
             <button id="api-key-toggle" class="absolute right-2 text-on-surface-variant hover:text-on-surface">
@@ -151,6 +227,39 @@
           <a id="ai-studio-link" class="font-label-sm text-[10px] text-primary hover:text-primary-container transition-colors inline-flex items-center gap-1 w-max mt-0.5" href="#">
             Get API Key from AI Studio <span class="material-symbols-outlined text-[12px]">open_in_new</span>
           </a>
+        </div>
+      </section>
+
+      <hr class="border-outline-variant/30">
+
+      <section class="flex flex-col gap-3">
+        <h2 class="font-section-header text-[10px] text-outline uppercase flex items-center gap-2">
+          <span class="material-symbols-outlined text-[14px]">forum</span> Chat App Connection (Chat Mode)
+        </h2>
+        
+        <div class="flex flex-col gap-2">
+          <label class="font-label-sm text-[11px] text-on-surface">Chat API Key</label>
+          <div class="relative flex items-center">
+            <input id="chat-api-key-input" class="w-full bg-surface-container-highest/50 border border-outline-variant/50 rounded pl-3 pr-10 py-1.5 font-mono text-[12px] text-on-surface focus:outline-none focus:border-primary-container focus:ring-1 focus:ring-primary-container transition-all" type="password" placeholder="OpenAI/OpenRouter API Key">
+            <button id="chat-api-key-toggle" class="absolute right-2 text-on-surface-variant hover:text-on-surface">
+              <span class="material-symbols-outlined text-[16px]">visibility</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="flex flex-col gap-2">
+          <label class="font-label-sm text-[11px] text-on-surface">Base URL</label>
+          <input id="chat-base-url-input" class="w-full bg-surface-container-highest/50 border border-outline-variant/50 rounded px-3 py-1.5 font-mono text-[12px] text-on-surface focus:outline-none focus:border-primary-container focus:ring-1 focus:ring-primary-container transition-all" type="text" placeholder="https://openrouter.ai/api/v1">
+        </div>
+
+        <div class="flex flex-col gap-2">
+          <label class="font-label-sm text-[11px] text-on-surface">Model Name</label>
+          <input id="chat-model-name-input" class="w-full bg-surface-container-highest/50 border border-outline-variant/50 rounded px-3 py-1.5 font-mono text-[12px] text-on-surface focus:outline-none focus:border-primary-container focus:ring-1 focus:ring-primary-container transition-all" type="text" placeholder="openai/gpt-4o">
+        </div>
+
+        <div class="flex flex-col gap-2">
+          <label class="font-label-sm text-[11px] text-on-surface">Max Tokens</label>
+          <input id="chat-max-tokens-input" class="w-full bg-surface-container-highest/50 border border-outline-variant/50 rounded px-3 py-1.5 font-mono text-[12px] text-on-surface focus:outline-none focus:border-primary-container focus:ring-1 focus:ring-primary-container transition-all" type="number" placeholder="4096">
         </div>
       </section>
       
@@ -268,6 +377,25 @@
           </div>
         </div>
       </section>
+      
+      <hr class="border-outline-variant/30">
+
+      <section class="flex flex-col gap-3">
+        <h2 class="font-section-header text-[10px] text-outline uppercase flex items-center gap-2">
+          <span class="material-symbols-outlined text-[14px]">keyboard</span> Keyboard Shortcuts
+        </h2>
+        <div class="flex flex-col gap-2">
+          <label class="font-label-sm text-[11px] text-on-surface">Minimize / Restore App</label>
+          <div class="flex items-center gap-2">
+            <input id="minimize-shortcut-input" class="flex-1 bg-surface-container-highest/50 border border-outline-variant/50 rounded px-3 py-1.5 font-mono text-[12px] text-on-surface focus:outline-none focus:border-primary-container focus:ring-1 focus:ring-primary-container transition-all text-center" type="text" value="Ctrl+M" readonly placeholder="Press keys...">
+            <button id="minimize-shortcut-record-btn" class="px-2 py-1.5 border border-outline-variant/50 hover:border-primary-container text-on-surface-variant hover:text-primary-container bg-transparent font-label-md text-[11px] rounded transition-all">
+              Record
+            </button>
+          </div>
+          <span class="font-body-md text-[10px] text-on-surface-variant">Click "Record" then press your desired key combo</span>
+        </div>
+      </section>
+
       <div class="h-2"></div>
     </div>
   </aside>

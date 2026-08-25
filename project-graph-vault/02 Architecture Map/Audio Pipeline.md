@@ -1,0 +1,10 @@
+---
+tags: [project/gem-vtuber]
+---
+# Audio Pipeline
+
+The microphone half is MicCapture plus its AudioWorklet. getUserMedia requests 16kHz mono with echoCancellation, noiseSuppression, and autoGainControl, feeding a 16kHz AudioContext whose worklet module loads from ../../dist/renderer/pcm-processor.js - a standalone file the build step copies into dist/renderer precisely because addModule cannot digest a bundled script. pcm-processor converts Float32 samples to Int16 and batches 4096 of them before postMessage, transferring the buffer's ownership for zero-copy delivery; mute is pushed into the worklet so a muted mic halts processing outright rather than discarding output, saving CPU and GC pressure. Nothing connects to the destination - the capture graph dead-ends at the worklet by design, which is what prevents speaker bleed back into the uplink.
+
+Playback is AudioPlayer at 24kHz matching Gemini's native audio rate. Its graph is source to analyser to gain to destination, so every chunk passes through an AnalyserNode (fftSize 2048, smoothing 0.6) that LipSync taps ([[Lip Sync and Animation]]). playChunk converts Int16 into an AudioBuffer with a single pass dividing by 0x8000/0x7FFF by sign, then schedules gaplessly: each source starts at max(now+10ms, nextStartTime) and nextStartTime advances by buffer duration, so streamed chunks butt-joint without clicks. Finished sources self-remove from an active Set and explicitly disconnect to break the graph - a stated memory-leak guard. clearQueue stops everything instantly for barge-in when Gemini signals interruption; setVolume clamps 0..1 onto the gain node; resume() exists because autoplay policy suspends the context until a user gesture.
+
+The full round trip is therefore: mic 16kHz Int16 batched in the worklet thread, base64'd in GeminiLiveSession.sendAudio, answered by 24kHz inline audio chunks decoded from base64 in index.js, gapless-scheduled here, analysed for lip sync, and cut short mid-word whenever interrupted arrives. Back to [[Home]].

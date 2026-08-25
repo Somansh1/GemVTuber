@@ -15,13 +15,15 @@ import { PersonalityEngine } from './gemini/PersonalityEngine.js';
 import { ScreenAnalyzer } from './gemini/ScreenAnalyzer.js';
 import { SettingsPanel } from './ui/SettingsPanel.js';
 import { InteractionOverlay } from './ui/InteractionOverlay.js';
+import { ChatApp } from './ui/ChatApp.js';
 
 // ─── Global State ───────────────────────────────────────────────────────────
 
 let avatarManager, defaultAvatar, lipSync, proceduralAnimator;
 let micCapture, audioPlayer;
 let geminiSession, personalityEngine, screenAnalyzer;
-let settingsPanel, overlay;
+let settingsPanel, overlay, chatApp;
+let currentMode = 'live';
 
 // ─── Initialization ─────────────────────────────────────────────────────────
 
@@ -31,6 +33,8 @@ async function init() {
   // 1. Initialize UI
   settingsPanel = new SettingsPanel();
   overlay = new InteractionOverlay();
+  chatApp = new ChatApp(overlay, () => settingsPanel.getSettings());
+  await chatApp.init();
 
   // 2. Initialize Avatar
   const canvas = document.getElementById('avatar-canvas');
@@ -125,6 +129,11 @@ function setupUICallbacks() {
 
     if (window.electronAPI) {
       await window.electronAPI.saveConfig(config);
+
+      // Update minimize shortcut if it changed
+      if (config.minimizeShortcut) {
+        window.electronAPI.updateMinimizeShortcut(config.minimizeShortcut);
+      }
     }
 
     // If personality changed, we must reconnect to send the new system prompt to the Live API
@@ -193,8 +202,11 @@ function setupUICallbacks() {
   });
 
   // Settings gear button in the status bar (primary way to access settings)
-  overlay.onSettingsClick(() => {
-    settingsPanel.toggle();
+  document.getElementById('settings-open-btn')?.addEventListener('click', () => {
+    settingsPanel.show();
+  });
+  document.getElementById('chat-app-settings-btn')?.addEventListener('click', () => {
+    settingsPanel.show();
   });
 
   // Mic indicator click
@@ -207,11 +219,167 @@ function setupUICallbacks() {
       overlay.setMicState('muted');
     }
   });
+
+  // Live / Chat Mode Toggle
+  const modeLiveBtn = document.getElementById('mode-live-btn');
+  const modeChatBtn = document.getElementById('mode-chat-btn');
+  const modeActiveBg = document.getElementById('mode-active-bg');
+
+  // Initialize slider width
+  setTimeout(() => {
+    if (modeActiveBg && modeLiveBtn) {
+      modeActiveBg.style.width = `${modeLiveBtn.offsetWidth}px`;
+    }
+  }, 100);
+
+  modeLiveBtn?.addEventListener('click', async () => {
+    if (currentMode === 'live') return;
+    currentMode = 'live';
+    
+    document.body.classList.remove('chat-mode');
+    document.getElementById('chat-sessions-pill')?.classList.add('hidden');
+    document.getElementById('chat-sessions-panel')?.classList.add('hidden');
+
+    // update button UI
+    if (modeActiveBg) {
+      modeActiveBg.style.transform = `translateX(0px)`;
+      modeActiveBg.style.width = `${modeLiveBtn.offsetWidth}px`;
+    }
+    modeLiveBtn.className = 'relative z-10 px-4 py-1.5 rounded-full font-label-md text-[13px] transition-colors duration-300 text-primary font-medium';
+    modeChatBtn.className = 'relative z-10 px-4 py-1.5 rounded-full font-label-md text-[13px] transition-colors duration-300 text-on-surface-variant hover:text-on-surface';
+
+    // hide chat app
+    chatApp.hide();
+
+    // Enable work mode features
+    if (micCapture.isMuted()) {
+      micCapture.unmute();
+      overlay.setMicState('on');
+    }
+    avatarManager.setEyeFollow(true);
+
+    // Connect Gemini
+    await tryAutoConnect();
+  });
+
+  modeChatBtn?.addEventListener('click', () => {
+    if (currentMode === 'chat') return;
+    currentMode = 'chat';
+
+    document.body.classList.add('chat-mode');
+    document.getElementById('chat-sessions-pill')?.classList.remove('hidden');
+
+    // update button UI
+    if (modeActiveBg) {
+      modeActiveBg.style.transform = `translateX(${modeLiveBtn.offsetWidth}px)`;
+      modeActiveBg.style.width = `${modeChatBtn.offsetWidth}px`;
+    }
+    modeChatBtn.className = 'relative z-10 px-4 py-1.5 rounded-full font-label-md text-[13px] transition-colors duration-300 text-primary font-medium';
+    modeLiveBtn.className = 'relative z-10 px-4 py-1.5 rounded-full font-label-md text-[13px] transition-colors duration-300 text-on-surface-variant hover:text-on-surface';
+
+    // disconnect Gemini session if connected
+    if (geminiSession) {
+      geminiSession.disconnect();
+    }
+    if (screenAnalyzer) {
+      screenAnalyzer.stop();
+    }
+    audioPlayer.clearQueue();
+    overlay.setStatus('idle');
+
+    // Disable work mode features
+    if (!micCapture.isMuted()) {
+      micCapture.mute();
+      overlay.setMicState('muted');
+    }
+    avatarManager.setEyeFollow(false);
+
+    // show chat app
+    chatApp.show();
+  });
+
+  // Reconnect button
+  document.getElementById('reconnect-btn')?.addEventListener('click', async () => {
+    if (currentMode === 'live') {
+      await reconnectGemini();
+    }
+  });
+
+  // Chat Sessions UI
+  const chatSessionsPanel = document.getElementById('chat-sessions-panel');
+  const chatSessionsList = document.getElementById('chat-sessions-list');
+  
+  document.getElementById('chat-session-new-btn')?.addEventListener('click', () => {
+    chatApp.createNewSession();
+    renderChatSessions();
+  });
+  
+  document.getElementById('chat-session-list-btn')?.addEventListener('click', () => {
+    chatSessionsPanel?.classList.toggle('hidden');
+    if (!chatSessionsPanel?.classList.contains('hidden')) {
+      renderChatSessions();
+    }
+  });
+
+  document.getElementById('chat-sessions-close')?.addEventListener('click', () => {
+    chatSessionsPanel?.classList.add('hidden');
+  });
+
+  document.getElementById('chat-minimize-btn')?.addEventListener('click', () => {
+    if (window.electronAPI) {
+      window.electronAPI.minimizeWindow();
+    }
+  });
+
+  window.addEventListener('chat-sessions-updated', () => {
+    if (!chatSessionsPanel?.classList.contains('hidden')) {
+      renderChatSessions();
+    }
+  });
+
+  async function renderChatSessions() {
+    if (!window.electronAPI || !chatSessionsList) return;
+    const sessions = await window.electronAPI.getChatSessions();
+    chatSessionsList.innerHTML = '';
+    
+    if (sessions.length === 0) {
+      chatSessionsList.innerHTML = '<div class="text-on-surface-variant text-[12px] p-2 text-center">No sessions found</div>';
+      return;
+    }
+
+    sessions.forEach(session => {
+      const btn = document.createElement('button');
+      btn.className = `w-full text-left p-3 rounded-lg transition-colors flex flex-col gap-1 ${
+        session.id === chatApp.currentSessionId 
+          ? 'bg-primary-container text-on-primary-container' 
+          : 'hover:bg-surface-variant text-on-surface'
+      }`;
+      
+      const title = document.createElement('div');
+      title.className = 'font-body-md text-[13px] truncate font-medium';
+      title.textContent = session.title || 'New Chat';
+      
+      const date = document.createElement('div');
+      date.className = 'font-label-sm text-[10px] opacity-70';
+      date.textContent = new Date(session.updatedAt).toLocaleString();
+      
+      btn.appendChild(title);
+      btn.appendChild(date);
+      
+      btn.addEventListener('click', async () => {
+        await chatApp.loadSession(session.id);
+        renderChatSessions();
+      });
+      
+      chatSessionsList.appendChild(btn);
+    });
+  }
 }
 
 // ─── Gemini Connection ──────────────────────────────────────────────────────
 
 async function tryAutoConnect() {
+  if (currentMode !== 'live') return;
   if (!window.electronAPI) return;
 
   const apiKey = await window.electronAPI.getApiKey();
@@ -322,6 +490,11 @@ async function connectGemini(apiKey) {
       tools,
     });
 
+    if (currentMode !== 'live') {
+      geminiSession.disconnect();
+      return;
+    }
+
     overlay.setStatus('connected');
     overlay.showSubtitle('Connected! Start talking 🎙️', 3000);
 
@@ -350,6 +523,7 @@ async function connectGemini(apiKey) {
 }
 
 async function reconnectGemini() {
+  if (currentMode !== 'live') return;
   const apiKey = await window.electronAPI?.getApiKey();
   if (apiKey && geminiSession) {
     geminiSession.disconnect();

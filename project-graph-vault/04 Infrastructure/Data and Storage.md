@@ -1,0 +1,10 @@
+---
+tags: [project/gem-vtuber]
+---
+# Data and Storage
+
+All durable state lives in four places. userData/config.json holds apiKey or encryptedApiKey - set-api-key encrypts through Electron safeStorage when OS-level encryption is available (DPAPI on Windows) and deletes the plaintext field, falling back to plaintext only when it is not - plus personality, customPrompt, screenCaptureEnabled, captureIntervalMinutes, avatarScale, volume, and modelName; get-config strips both key fields before the object crosses IPC, so renderer code never reads the stored secret back through config (only getApiKey returns it). userData/logs/chat.log accumulates every transcription and model text line timestamped via an append-mode write stream, and userData/logs/screenshots collects every periodic or requested capture as screenshot_*.jpg with no pruning - unencrypted screen images of everything the avatar saw, worth knowing about when troubleshooting or uninstalling ([[Screen Awareness]]).
+
+Renderer-side, localStorage key gemvtuber_personality persists personality type, custom prompt, and up to fifty memory strings across sessions, debounced one second on write ([[Personality and Memory]]). Models stay entirely user-supplied: .gitignore excludes models/* beyond .gitkeep and the vendored live2dcubismcore*.js, so a fresh clone boots to the Canvas2D DefaultAvatar until someone drops a model3.json tree into models/default (which find-default-model prefers) or picks any folder via the settings dialog; the CDN fallback fetches the Cubism runtime from cubism.live2d.com at load time if the local lib file is absent ([[Avatar Rendering]]).
+
+Privacy posture follows from mechanics rather than policy documents: screen captures and chat transcripts leave the machine only toward Google's Gemini endpoint whenever a session is connected, memories persist locally until clearHistory wipes them, and the API key is encrypted at rest wherever the OS supports it. temp.json at the repo root is empty and referenced by nothing - cruft. Back to [[Home]].

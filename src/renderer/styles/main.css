@@ -1,3 +1,5 @@
+@import 'highlight.js/styles/github-dark.css';
+
 /* ═══════════════════════════════════════════════════════════════
    GemVTuber — Nebula Glass Theme (Stitch MCP Style)
    ═══════════════════════════════════════════════════════════════ */
@@ -45,7 +47,12 @@ html, body {
 }
 
 /* ─── Non-draggable interactive elements ─── */
-button, input, select, textarea, a, .resize-handle, #settings-panel, #status-bar, #context-menu, .settings-body {
+button, input, select, textarea, a, .resize-handle, #settings-panel, #chat-sessions-panel, #chat-sessions-pill, #status-bar, #context-menu, .settings-body {
+  -webkit-app-region: no-drag;
+}
+
+/* Chat overlay: only the inner interactive container needs no-drag, not the whole overlay */
+#chat-app-overlay .chat-interactive-container {
   -webkit-app-region: no-drag;
 }
 
@@ -190,6 +197,23 @@ body.ui-hidden #subtitle-container {
   transform: translateY(10px);
 }
 
+/* Lock State */
+body.is-locked #status-bar,
+body.is-locked #mode-toggle-container,
+body.is-locked #settings-panel,
+body.is-locked [title] {
+  pointer-events: none !important;
+}
+
+/* Chat Mode Layout Shifts */
+body.chat-mode #status-bar,
+body.chat-mode #subtitle-container,
+body.chat-mode #chat-panel,
+body.chat-mode #avatar-canvas,
+body.chat-mode #fallback-canvas {
+  display: none !important;
+}
+
 /* ─── Settings Panel (Tailwind Base Additions) ─── */
 .custom-scrollbar::-webkit-scrollbar {
   width: 4px;
@@ -255,3 +279,75 @@ input[type=range]::-webkit-slider-runnable-track {
 @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(1.1); } }
 @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
 @keyframes fadeSlideUp { from { opacity: 0; transform: translateX(-50%) translateY(20px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+
+/* ─── Warp Texture ─── */
+.bg-noise {
+  position: relative;
+  overflow: hidden;
+}
+.bg-noise::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; width: 100%; height: 100%;
+  opacity: 0.15;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: -1;
+  mix-blend-mode: overlay;
+}
+
+/* ─── Markdown Body Styles ─── */
+.markdown-body {
+  word-wrap: break-word;
+}
+.markdown-body p, .markdown-body blockquote, .markdown-body ul, .markdown-body ol, .markdown-body dl, .markdown-body table, .markdown-body pre, .markdown-body details {
+  margin-top: 0;
+  margin-bottom: 12px;
+}
+.markdown-body p:last-child {
+  margin-bottom: 0;
+}
+.markdown-body pre {
+  background-color: #1e1e1e;
+  border-radius: 6px;
+  padding: 12px;
+  overflow: auto;
+  font-family: ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, Liberation Mono, monospace;
+  font-size: 85%;
+  line-height: 1.45;
+}
+.markdown-body code {
+  font-family: ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, Liberation Mono, monospace;
+  background-color: rgba(110,118,129,0.4);
+  border-radius: 6px;
+  padding: 0.2em 0.4em;
+  font-size: 85%;
+}
+.markdown-body pre code {
+  background-color: transparent;
+  padding: 0;
+}
+.markdown-body a {
+  color: var(--primary);
+  text-decoration: none;
+}
+.markdown-body a:hover {
+  text-decoration: underline;
+}
+.markdown-body blockquote {
+  padding: 0 1em;
+  color: #8b949e;
+  border-left: 0.25em solid #30363d;
+}
+.markdown-body ul, .markdown-body ol {
+  padding-left: 2em;
+}
+.markdown-body h1, .markdown-body h2, .markdown-body h3, .markdown-body h4, .markdown-body h5, .markdown-body h6 {
+  margin-top: 24px;
+  margin-bottom: 16px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+.markdown-body h1 { font-size: 1.5em; }
+.markdown-body h2 { font-size: 1.3em; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 0.3em; }
+.markdown-body h3 { font-size: 1.1em; }

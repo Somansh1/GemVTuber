@@ -34,8 +34,12 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "dompurify": "^3.4.14",
+    "highlight.js": "^11.12.0",
     "live2d-renderer": "^0.6.6",
     "live2dcubismcore": "^1.0.2",
+    "marked": "^18.0.11",
+    "marked-highlight": "^2.2.4",
     "pixi.js": "^8.18.1",
     "untitled-pixi-live2d-engine": "^1.2.0"
   },

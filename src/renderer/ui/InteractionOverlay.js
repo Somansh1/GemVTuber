@@ -193,7 +193,10 @@ export class InteractionOverlay {
     if (window.electronAPI?.onLockStateChanged) {
       window.electronAPI.onLockStateChanged((locked) => {
         if (!locked) {
+          document.body.classList.remove('is-locked');
           this.showSubtitle("🔓 Model unlocked.", 2000);
+        } else {
+          document.body.classList.add('is-locked');
         }
       });
     }
@@ -202,6 +205,7 @@ export class InteractionOverlay {
   lockModel() {
     if (window.electronAPI?.lockModel) {
       window.electronAPI.lockModel(true);
+      document.body.classList.add('is-locked');
       this.showSubtitle("🔒 Model locked. Use system tray to unlock.");
       setTimeout(() => this.hideSubtitle(), 4000);
     }

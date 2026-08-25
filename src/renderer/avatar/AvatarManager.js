@@ -60,13 +60,8 @@ export class AvatarManager {
     });
 
     // Track mouse globally across the entire desktop screen
-    let globalCounter = 0;
     if (window.electronAPI && window.electronAPI.onGlobalMouseMove) {
       window.electronAPI.onGlobalMouseMove((coords) => {
-        globalCounter++;
-        if (globalCounter % 60 === 0) {
-          console.log(`[RENDERER] Global Mouse Point received: ${coords.x}, ${coords.y}`);
-        }
         this._mouseX = coords.x;
         this._mouseY = coords.y;
         this._updateEyeFollow();
@@ -423,7 +418,19 @@ export class AvatarManager {
   }
 
   _updateEyeFollow() {
-    if (!this.eyeFollowEnabled || !this.model || !this.modelProfile?.hasEyeFollow) return;
+    if (!this.model || !this.modelProfile?.hasEyeFollow) return;
+    
+    if (!this.eyeFollowEnabled) {
+      // Reset eyes to center if disabled
+      try {
+        if (this.model.focus) {
+          this.model.focus(0, 0);
+        } else if (this.model.internalModel?.focusController) {
+          this.model.internalModel.focusController.focus(0, 0);
+        }
+      } catch { /* ignore */ }
+      return;
+    }
 
     const w = window.innerWidth;
     const h = window.innerHeight;

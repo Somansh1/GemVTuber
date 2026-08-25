@@ -1,0 +1,12 @@
+---
+tags: [project/gem-vtuber]
+---
+# Test Suite
+
+The tracked tests are two colocated spec files inside src/renderer/gemini: PersonalityEngine.spec.js exercises prompt selection across the five personalities plus custom fallback, memory deduplication and capacity, and localStorage persistence behavior; ToolDefinitions.spec.js exercises generateTools composition against synthetic model profiles. Jest runs via the test script with babel-jest transforming ES modules through @babel/preset-env targeting the current Node version; no explicit jest config exists in package.json or files, so default testMatch picks up *.spec.js anywhere under the roots.
+
+Honest execution status: this workspace cannot run them - node_modules contains electron-builder, esbuild, pixi, and friends but no jest and no babel packages despite their devDependencies entries, so `npm test` would fail on missing modules before collecting a single suite. Everything below is static inspection, not observed runs.
+
+By inspection the ToolDefinitions spec is stale relative to commit aab5aa9: one test asserts that with animatable parameters present generateTools returns animate_avatar as tools[0] including its parameter-range description text, another asserts the expected tool name set includes 'animate_avatar'. Current generateTools never emits animate_avatar (removed as unreliable for LLM keyframe generation) and never emits play_custom_action when customActions is empty, which is always the case since loadCustomActions has no caller ([[Tool Calling]]). Both assertions therefore cannot pass against today's code; the suite should be considered red until the spec is rewritten to expect {set_avatar_emotion, play_avatar_motion, take_screenshot, remember_context} shaped by capability flags. The PersonalityEngine spec has no such coupling to the removal and plausibly still passes, though that remains inference until jest is installed.
+
+tests/ additionally holds manual harnesses - mouth-test app/html/js for visual lip sync tuning, bundle-test/build-test/check-iife verifying esbuild output shape, dump-params printing discovered model parameters - but .gitignore excludes the whole folder, so these are local-only developer tools rather than CI assets. Back to [[Home]].
