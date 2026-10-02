@@ -92,4 +92,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onLockStateChanged: (callback) => {
     ipcRenderer.on('lock-state-changed', (event, locked) => callback(locked));
   },
+
+  // ─── Push-to-Talk ──────────────────────────────────────────────
+  onPTTKeyDown: (callback) => {
+    ipcRenderer.on('ptt-key-down', () => callback());
+  },
+
+  onPTTKeyUp: (callback) => {
+    ipcRenderer.on('ptt-key-up', () => callback());
+  },
+
+  onPTTToggle: (callback) => {
+    ipcRenderer.on('ptt-toggle', () => callback());
+  },
 });

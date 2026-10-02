@@ -14,6 +14,9 @@ let mainWindow = null;
 let tray = null;
 let screenCapture = null;
 
+// ─── Push-to-Talk State ─────────────────────────────────────────────────────
+let pttKeyDown = false;
+
 const CONFIG_PATH = path.join(app.getPath('userData'), 'config.json');
 const CHAT_HISTORY_PATH = path.join(app.getPath('userData'), 'chatHistory.json');
 const SESSIONS_DIR = path.join(app.getPath('userData'), 'sessions');
@@ -537,8 +540,9 @@ app.whenReady().then(async () => {
     screenCapture.start(config.captureIntervalMinutes || 7);
   }
 
-  // Register minimize shortcut
+  // Register global shortcuts (minimize + push-to-talk)
   registerMinimizeShortcut(config.minimizeShortcut || 'Ctrl+M');
+  registerPTTHotkey();
 });
 
 app.on('window-all-closed', () => {
@@ -555,11 +559,14 @@ app.on('before-quit', () => {
   if (chatLogStream) chatLogStream.end();
 });
 
+let minimizeAccelerator = null;
+
 // ─── Global Shortcut Helper ─────────────────────────────────────────────────
 
 function registerMinimizeShortcut(shortcut) {
   try {
-    globalShortcut.unregisterAll();
+    if (minimizeAccelerator) globalShortcut.unregister(minimizeAccelerator);
+    minimizeAccelerator = null;
     if (!shortcut) return;
 
     // Convert friendly names to Electron accelerator format
@@ -579,10 +586,67 @@ function registerMinimizeShortcut(shortcut) {
       }
     });
 
-    if (!registered) {
+    if (registered) minimizeAccelerator = accelerator;
+    else {
       console.warn(`[MAIN] Failed to register shortcut: ${shortcut}`);
     }
   } catch (e) {
     console.error(`[MAIN] Error registering shortcut '${shortcut}':`, e.message);
+  }
+}
+
+// ─── Push-to-Talk Hotkey Logic ──────────────────────────────────────────────
+
+function registerPTTHotkey() {
+  // ── Ctrl+` : Hold to talk (PTT) ─────────────────────────────────────────
+  const pttAccelerator = 'CommandOrControl+`';
+  let lastRepeatTime = 0;
+  let releaseChecker = null;
+
+  const pttOk = globalShortcut.register(pttAccelerator, () => {
+    lastRepeatTime = Date.now();
+
+    if (!pttKeyDown) {
+      // First press — unmute
+      pttKeyDown = true;
+
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('ptt-key-down');
+      }
+
+      // Detect release via gap in keyboard-repeat events
+      releaseChecker = setInterval(() => {
+        if (Date.now() - lastRepeatTime > 250) {
+          clearInterval(releaseChecker);
+          releaseChecker = null;
+          pttKeyDown = false;
+
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('ptt-key-up');
+          }
+        }
+      }, 50);
+    }
+  });
+
+  if (!pttOk) {
+    console.warn('[PTT] Failed to register hold-to-talk hotkey:', pttAccelerator);
+  } else {
+    console.log('[PTT] Hold-to-talk registered: Ctrl+`');
+  }
+
+  // ── Ctrl+Space : Toggle mic on/off ──────────────────────────────────────
+  const toggleAccelerator = 'CommandOrControl+Space';
+
+  const toggleOk = globalShortcut.register(toggleAccelerator, () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('ptt-toggle');
+    }
+  });
+
+  if (!toggleOk) {
+    console.warn('[PTT] Failed to register toggle hotkey:', toggleAccelerator);
+  } else {
+    console.log('[PTT] Mic toggle registered: Ctrl+Space');
   }
 }

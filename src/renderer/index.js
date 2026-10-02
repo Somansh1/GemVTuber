@@ -83,6 +83,22 @@ async function init() {
   // 9. Try auto-connecting if API key exists
   await tryAutoConnect();
 
+  // 10. Auto-resume audio contexts on first user interaction to satisfy Autoplay Policies
+  const resumeAudioOnGesture = async () => {
+    if (audioPlayer) {
+      await audioPlayer.resume();
+    }
+    if (micCapture && micCapture.audioContext) {
+      if (micCapture.audioContext.state === 'suspended') {
+        await micCapture.audioContext.resume();
+      }
+    }
+    document.removeEventListener('click', resumeAudioOnGesture);
+    document.removeEventListener('keydown', resumeAudioOnGesture);
+  };
+  document.addEventListener('click', resumeAudioOnGesture);
+  document.addEventListener('keydown', resumeAudioOnGesture);
+
   console.log('✅ GemVTuber ready!');
 }
 
@@ -372,6 +388,50 @@ function setupUICallbacks() {
       });
       
       chatSessionsList.appendChild(btn);
+    });
+  }
+
+  // Push-to-Talk hotkeys
+  setupPTTHotkey();
+}
+
+// ─── Push-to-Talk ───────────────────────────────────────────────────────────
+
+function setupPTTHotkey() {
+  if (!window.electronAPI?.onPTTKeyDown) return;
+
+  // Track the mic state before a PTT hold so we can restore it on release
+  let prePTTMuted = false;
+
+  // ── Ctrl+` : Hold to talk ─────────────────────────────────────────────
+  window.electronAPI.onPTTKeyDown(() => {
+    prePTTMuted = micCapture.isMuted();
+    if (prePTTMuted) {
+      micCapture.unmute();
+      overlay.setMicState('on');
+    }
+  });
+
+  window.electronAPI.onPTTKeyUp(() => {
+    // Release → restore previous mute state
+    if (prePTTMuted) {
+      micCapture.mute();
+      overlay.setMicState('muted');
+    }
+  });
+
+  // ── Ctrl+Space : Toggle mic on/off ────────────────────────────────────
+  if (window.electronAPI.onPTTToggle) {
+    window.electronAPI.onPTTToggle(() => {
+      if (micCapture.isMuted()) {
+        micCapture.unmute();
+        overlay.setMicState('on');
+        overlay.showSubtitle('🎙️ Mic on', 1500);
+      } else {
+        micCapture.mute();
+        overlay.setMicState('muted');
+        overlay.showSubtitle('🔇 Mic muted', 1500);
+      }
     });
   }
 }
