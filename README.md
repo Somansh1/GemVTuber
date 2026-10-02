@@ -1,3 +1,8 @@
+<p align="center">
+    <img src="./assets/icons/gemvtuber.jpg" width="100%">
+  </a>
+</p>
+
 # GemVTuber
 
 An Electron desktop companion. A transparent, frameless, always-on-top window shows a Live2D avatar. You talk to it through a microphone; speech goes to Google's Gemini Live API over a WebSocket, and the avatar speaks back, changes expression, plays motions and lip-syncs to the returned audio.
