@@ -1,4 +1,4 @@
-# Contributing to GemVTuber
+﻿# Contributing to GemVTuber
 
 Thanks for your interest in contributing! Here's how to get started.
 
@@ -6,8 +6,8 @@ Thanks for your interest in contributing! Here's how to get started.
 
 ```bash
 # Clone
-git clone https://github.com/user/gem-vtuber.git
-cd gem-vtuber
+git clone https://github.com/Somansh1/gem-companion-vtuber.git
+cd gem-companion-vtuber
 
 # Install dependencies
 npm install
@@ -19,7 +19,7 @@ npm run dev
 ## 📁 Project Structure
 
 ```
-gem-vtuber/
+gem-companion-vtuber/
 ├── src/
 │   ├── main/                    # Electron main process
 │   │   ├── main.js              # Window creation, IPC, lifecycle
