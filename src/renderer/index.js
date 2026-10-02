@@ -496,11 +496,6 @@ async function connectGemini(apiKey) {
           result.message = `Playing motion ${args.group}`;
           break;
 
-        case 'animate_avatar':
-          proceduralAnimator.playAnimation(args);
-          result.message = 'Animation playing';
-          break;
-
         case 'play_custom_action':
           proceduralAnimator.playCustomAction(args.name);
           result.message = `Playing custom action ${args.name}`;

@@ -479,7 +479,7 @@ export class AvatarManager {
       };
       script.onerror = () => {
         console.warn('Could not load Cubism Core from CDN. Live2D models will not work.');
-        console.warn('Place live2dcubismcore.min.js in src/renderer/lib/ or load a VRM model instead.');
+        console.warn('Place live2dcubismcore.min.js in src/renderer/lib/ if you need offline use.');
         resolve(); // Don't reject — we'll fall back to default avatar
       };
       document.head.appendChild(script);
