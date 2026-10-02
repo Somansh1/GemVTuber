@@ -5,6 +5,7 @@ node_modules/
 dist/
 out/
 build/
+release/
 
 # Electron Builder
 *.exe
@@ -28,7 +29,6 @@ src/renderer/lib/live2dcubismcore*.js
 src/renderer/lib/live2d.min.js
 
 # User models (too large for git)
-tests/
 models/*
 !models/.gitkeep
 models/Allium企划
@@ -55,3 +55,24 @@ coverage/
 # Misc
 *.tgz
 .npm
+
+# Personal notes / local tooling
+project-graph-vault/
+.obsidian/
+.jules/
+.claude/
+*.bak
+temp.json
+pr_description.md
+
+# Environment variants
+.env.*
+!.env.example
+*.pem
+*.p12
+
+# Runtime data written by the app (normally lives in the Electron userData dir)
+config.json
+chatHistory.json
+sessions/
+logs/
